@@ -72,12 +72,12 @@ export function CaseRollModal({
     const randomOffset = (Math.random() - 0.5) * (tileSize * 0.5);
     const targetX = containerWidth / 2 - winningCenter + randomOffset;
 
-    const startFrame = requestAnimationFrame(() => {
-      const animFrame = requestAnimationFrame(() => {
+    let secondFrame = 0;
+    const firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(() => {
         setTranslateX(targetX);
         setIsAnimating(true);
       });
-      (startFrame as unknown as { _next?: number })._next = animFrame;
     });
 
     const resultTimer = window.setTimeout(() => {
@@ -85,7 +85,8 @@ export function CaseRollModal({
     }, ROLL_DURATION_MS + 150);
 
     return () => {
-      cancelAnimationFrame(startFrame);
+      cancelAnimationFrame(firstFrame);
+      if (secondFrame) cancelAnimationFrame(secondFrame);
       window.clearTimeout(resultTimer);
     };
   }, [spacing, tileSize]);
