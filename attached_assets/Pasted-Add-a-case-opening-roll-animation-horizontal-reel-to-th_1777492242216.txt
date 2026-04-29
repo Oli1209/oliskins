@@ -1,0 +1,46 @@
+Add a case opening roll animation (horizontal reel) to the existing OliSkins app. Keep all existing store logic and RNG result unchanged. This is a UI/UX feature only.
+
+Goal
+When the user clicks “Otwórz” on a case:
+
+If insufficient funds -> existing error behavior stays.
+If success -> show an opening modal with a horizontal rolling reel animation for ~3 seconds, then reveal the already-selected winning item.
+Requirements
+Do NOT change the economy or RNG selection logic (the store still decides the winning item).
+Add UI state to control animation: isRolling, winningItem, etc.
+Disable the “Otwórz” button while rolling to prevent double opens.
+Reel UI (horizontal)
+Create a component CaseRollModal (or similar) that:
+
+Has a glass-strong modal container.
+Shows the case name and cost.
+Shows a reel area: fixed height (e.g. 110–140px), overflow hidden, with a center indicator line (neon cyan).
+Inside the reel, render a long horizontal list of item tiles (e.g. 40–60 tiles) that scrolls from right to left.
+The reel should end with the winning item aligned under the center indicator.
+How to build the sequence
+After openCase(caseId) returns the winning InventoryItem, build a reelItems[] array:
+Fill with random drops from the same case (can repeat).
+Place the winning item near the end (e.g. index 35 of 45) so the reel “lands” on it.
+Animate translateX so that the winning item stops at the center indicator.
+Animation implementation
+Use CSS transition (recommended) for simplicity:
+Start position: translateX(0)
+End position: negative offset computed so winning tile lands in center
+Transition: 2800–3500ms with an easing like cubic-bezier(0.12, 0.8, 0.2, 1)
+After transition ends, switch modal state to “result” view:
+Show winning item bigger + rarity badge + value
+Buttons:
+“Otwórz ponownie”
+“Idź do ekwipunku”
+Optional: “Zamknij”
+Item tile styling
+Simple square tile with glass background, rarity-colored border, and image inside with padding (object-contain).
+Keep consistent rarity colors (reuse existing rarity helper).
+Polish strings
+Rolling state text: “Otwieranie...”
+Result: “Wypadło:”
+Acceptance criteria
+Reel visibly animates and ends on the correct winning item every time.
+Balance and inventory behavior stays correct.
+No double-open while rolling.
+Works on mobile (reel scales down).
