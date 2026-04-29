@@ -1,0 +1,58 @@
+Refactor UI to match a dark navy + neon cyan “CS skins website” style (glassmorphism), similar to modern case-opening sites. Keep ALL existing logic (store, RNG, inventory, opening animation) unchanged. Only improve styling and UI layout.
+
+1) Global theme tokens
+Implement consistent design tokens using CSS variables in src/index.css (or a global stylesheet):
+
+Background: very dark navy/near-black
+Card: slightly lighter navy with transparency
+Primary accent: neon cyan
+Secondary accent: amber
+Add subtle background gradient and a cyan glow vignette.
+Create reusable utility classes:
+
+.glass (backdrop blur + translucent card bg + soft border)
+.glass-strong (stronger blur + slightly higher opacity)
+Ensure app feels like the screenshot reference: navy base, cyan accents, soft glow, not gray/washed-out.
+
+2) Header overhaul (readability of balance)
+Make the header look like a premium navbar:
+
+sticky, glass-strong
+nav items as pill buttons (subtle cyan hover)
+Balance must be VERY readable:
+show as a cyan pill badge with icon + formatted money #X.XX
+do not hide it in small text
+keep “Reset” but make it subtle (small ghost button).
+3) Money formatting consistency
+Fix any place where clicker shows cents like +0¢.
+
+Always display currency as #X.XX.
+For click gain, display +0.01# (note the # at the end).
+Ensure formatMoney is used everywhere.
+4) Cases page UI refresh
+Redesign /skrzynki to look like the screenshot:
+
+Page header section with title “Wszystkie skrzynki” and a short subtitle
+Cases as cards with:
+case image
+name + short description
+price prominently (formatted)
+buttons styled with neon cyan (primary) and subtle secondary button if needed
+Keep the existing “open” behavior and existing opening animation/result UI, only restyle containers/buttons/modal.
+5) Clicker page UI refresh + floating gain animation
+Redesign /clicker:
+
+Use a centered glass panel with a circular clickable element/button (neon cyan), similar to modern clicker UI.
+Add smooth animations:
+On each accepted click, show a floating text +0.01# that starts near the click area, moves upward ~40–80px, fades out, and gets removed from DOM after animation ends.
+Use CSS keyframes or framer-motion (if already installed) for smoothness.
+Show balance clearly on page (same pill style as header).
+Show session stats in a clean, readable way.
+Do not spam toasts per click (use floating animation instead).
+6) Constraints / acceptance
+Do not break routing or store persistence.
+Do not change RNG or economy values.
+App should remain responsive (mobile + desktop).
+Keep code clean: extract small components if necessary (e.g. BalancePill, GlassCard, FloatingGain).
+Deliverable: updated UI matching a navy+cya glass premium skins-site look, with correct currency formatting and clicker floating gain animations.
+
