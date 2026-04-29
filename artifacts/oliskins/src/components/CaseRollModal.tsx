@@ -69,7 +69,9 @@ export function CaseRollModal({
 
     const containerWidth = viewport.offsetWidth;
     const winningCenter = WINNING_INDEX * spacing + tileSize / 2;
-    const randomOffset = (Math.random() - 0.5) * 20;
+    const maxOffset = tileSize * 0.25;
+    const safeMaxOffset = Math.min(maxOffset, tileSize / 2 - 6);
+    const randomOffset = (Math.random() * 2 - 1) * safeMaxOffset;
     const targetX = containerWidth / 2 - winningCenter + randomOffset;
 
     let secondFrame = 0;
@@ -152,9 +154,7 @@ export function CaseRollModal({
                 })}
               </div>
 
-              <div className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 w-[20px] rounded-sm bg-cyan-400/15 border-x border-cyan-400/80 shadow-[0_0_18px_rgba(34,211,238,0.7),inset_0_0_12px_rgba(34,211,238,0.35)]" />
-              <div className="pointer-events-none absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-t-[8px] border-l-transparent border-r-transparent border-t-cyan-400" />
-              <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-r-[6px] border-b-[8px] border-l-transparent border-r-transparent border-b-cyan-400" />
+              <div className="pointer-events-none absolute inset-y-0 left-1/2 -translate-x-1/2 w-[2px] bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.95),0_0_28px_rgba(34,211,238,0.5)]" />
 
               <div className="pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-slate-950 to-transparent" />
               <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-slate-950 to-transparent" />
