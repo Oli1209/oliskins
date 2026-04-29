@@ -13,7 +13,7 @@ type Props = {
 
 const REEL_LENGTH = 45;
 const WINNING_INDEX = 35;
-const ROLL_DURATION_MS = 3200;
+const ROLL_DURATION_MS = 5000;
 
 function pickRandomDrop(drops: Drop[]): Drop {
   return drops[Math.floor(Math.random() * drops.length)];
@@ -32,8 +32,8 @@ export function CaseRollModal({
   const viewportRef = useRef<HTMLDivElement>(null);
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
-  const tileSize = isMobile ? 84 : 120;
-  const tileGap = 8;
+  const tileSize = isMobile ? 120 : 180;
+  const tileGap = 10;
   const spacing = tileSize + tileGap;
 
   const reelItems = useMemo(() => {
@@ -68,11 +68,21 @@ export function CaseRollModal({
     if (!viewport) return;
 
     const containerWidth = viewport.offsetWidth;
+
+    const winnerEl = viewport.querySelector<HTMLElement>("[data-winner='true']");
+    const measuredW = winnerEl?.getBoundingClientRect().width ?? tileSize;
+    const w = measuredW > 0 ? measuredW : tileSize;
+
+    const r = Math.random();
+    const biased =
+      Math.random() < 0.5 ? Math.sqrt(r) : 1 - Math.sqrt(r);
+    const u = biased * 2 - 1;
+    const rawOffset = u * (w * 0.35);
+    const maxOffset = w * 0.4;
+    const offsetPx = Math.max(-maxOffset, Math.min(maxOffset, rawOffset));
+
     const winningCenter = WINNING_INDEX * spacing + tileSize / 2;
-    const maxOffset = tileSize * 0.25;
-    const safeMaxOffset = Math.min(maxOffset, tileSize / 2 - 6);
-    const randomOffset = (Math.random() * 2 - 1) * safeMaxOffset;
-    const targetX = containerWidth / 2 - winningCenter + randomOffset;
+    const targetX = containerWidth / 2 - winningCenter + offsetPx;
 
     let secondFrame = 0;
     const firstFrame = requestAnimationFrame(() => {
@@ -97,7 +107,7 @@ export function CaseRollModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xl animate-in fade-in duration-200">
-      <div className="glass-strong w-full max-w-2xl rounded-2xl p-6 sm:p-8 border-cyan-500/40 shadow-[0_0_60px_rgba(34,211,238,0.18)] animate-in zoom-in-95 duration-300">
+      <div className="glass-strong w-full max-w-3xl rounded-2xl p-6 sm:p-8 border-cyan-500/40 shadow-[0_0_60px_rgba(34,211,238,0.18)] animate-in zoom-in-95 duration-300">
         <div className="flex items-baseline justify-between gap-3 mb-5">
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
@@ -131,11 +141,12 @@ export function CaseRollModal({
                     : "none",
                 }}
               >
-                {reelItems.map(({ key, drop }) => {
+                {reelItems.map(({ key, drop, isWinner }) => {
                   const r = rarityColors[drop.rarity];
                   return (
                     <div
                       key={key}
+                      data-winner={isWinner ? "true" : undefined}
                       className={`shrink-0 relative rounded-lg border-2 overflow-hidden bg-slate-900/80 ${r.border}`}
                       style={{ width: tileSize, height: tileSize }}
                     >
