@@ -1,0 +1,39 @@
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { Header } from "./components/Header";
+import { Start } from "./pages/Start";
+import { Skrzynki } from "./pages/Skrzynki";
+import { Ekwipunek } from "./pages/Ekwipunek";
+import { Clicker } from "./pages/Clicker";
+
+const basename = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function NotFound() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-4 text-center">
+      <h1 className="text-6xl font-black text-zinc-100 mb-4">404</h1>
+      <p className="text-zinc-400 mb-8 text-xl">Nie znaleziono takiej strony w mrocznym świecie neonów.</p>
+      <a href="/" className="neon-button">Wróć na start</a>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <Router basename={basename}>
+      <div className="min-h-screen bg-background text-foreground flex flex-col">
+        <Header />
+        <main className="flex-1">
+          <Routes>
+            <Route path="/" element={<Start />} />
+            <Route path="/skrzynki" element={<Skrzynki />} />
+            <Route path="/ekwipunek" element={<Ekwipunek />} />
+            <Route path="/clicker" element={<Clicker />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </main>
+      </div>
+    </Router>
+  );
+}
+
+export default App;
