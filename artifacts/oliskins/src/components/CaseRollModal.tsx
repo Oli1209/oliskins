@@ -32,7 +32,7 @@ export function CaseRollModal({
   const viewportRef = useRef<HTMLDivElement>(null);
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
-  const tileSize = isMobile ? 120 : 180;
+  const tileSize = isMobile ? 102 : 153;
   const tileGap = 10;
   const spacing = tileSize + tileGap;
 
@@ -73,12 +73,8 @@ export function CaseRollModal({
     const measuredW = winnerEl?.getBoundingClientRect().width ?? tileSize;
     const w = measuredW > 0 ? measuredW : tileSize;
 
-    const r = Math.random();
-    const biased =
-      Math.random() < 0.5 ? Math.sqrt(r) : 1 - Math.sqrt(r);
-    const u = biased * 2 - 1;
-    const rawOffset = u * (w * 0.35);
-    const maxOffset = w * 0.4;
+    const rawOffset = (Math.random() * 2 - 1) * (w * 0.48);
+    const maxOffset = w * 0.45;
     const offsetPx = Math.max(-maxOffset, Math.min(maxOffset, rawOffset));
 
     const winningCenter = WINNING_INDEX * spacing + tileSize / 2;
@@ -107,7 +103,7 @@ export function CaseRollModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xl animate-in fade-in duration-200">
-      <div className="glass-strong w-full max-w-3xl rounded-2xl p-6 sm:p-8 border-cyan-500/40 shadow-[0_0_60px_rgba(34,211,238,0.18)] animate-in zoom-in-95 duration-300">
+      <div className="glass-strong w-full max-w-5xl rounded-2xl p-6 sm:p-8 border-cyan-500/40 shadow-[0_0_60px_rgba(34,211,238,0.18)] animate-in zoom-in-95 duration-300">
         <div className="flex items-baseline justify-between gap-3 mb-5">
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
