@@ -6,7 +6,7 @@ import { useGameStore } from "../store/useGameStore";
 import { freeCases } from "../data/freeCases";
 import { formatMoney } from "../lib/format";
 import { rarityColors } from "../lib/rarity";
-import { CaseReelStrip } from "./CaseReelStrip";
+import { FreeCaseReelStrip } from "./FreeCaseReelStrip";
 import { formatChance } from "../lib/chances";
 import { useFreeCooldown, formatCooldown } from "../hooks/useFreeCooldown";
 import { Case } from "../lib/types";
@@ -153,7 +153,7 @@ function FreeCaseModalInner({ caseData }: { caseData: FreeCase }) {
         {/* Reel area */}
         <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-slate-950/70 to-slate-900/40 p-4 sm:p-6 mb-6 lg:mb-8">
           {result ? (
-            <CaseReelStrip
+            <FreeCaseReelStrip
               caseData={reelCaseData}
               winningItem={result.winner}
               onResolved={onResolved}
