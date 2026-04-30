@@ -1,3 +1,5 @@
+import type { Mode } from "./chances";
+
 export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
 
 export type Drop = {
@@ -49,7 +51,7 @@ export type GameState = {
 
   addBalanceCents: (delta: number) => void;
   reset: () => void;
-  openCase: (caseId: string) => { ok: true; item: InventoryItem } | { ok: false; reason: "insufficient" | "unknown_case" };
+  openCase: (caseId: string, mode?: Mode) => { ok: true; item: InventoryItem } | { ok: false; reason: "insufficient" | "unknown_case" };
   sellItem: (instanceId: string) => SellItemResult;
   sellAll: () => SellAllResult;
   toggleLock: (instanceId: string) => void;

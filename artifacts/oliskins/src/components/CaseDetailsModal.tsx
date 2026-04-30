@@ -7,7 +7,12 @@ import { mockCases } from "../data/mockCases";
 import { formatMoney } from "../lib/format";
 import { rarityColors } from "../lib/rarity";
 import { CaseReelStrip } from "./CaseReelStrip";
-import { Mode, formatChance, getDropsWithChances } from "../lib/chances";
+import {
+  Mode,
+  formatChance,
+  getEffectiveDrops,
+  getModePriceMultiplier,
+} from "../lib/chances";
 
 type Quantity = 1 | 2 | 3;
 
@@ -20,10 +25,10 @@ type RollResult = {
 
 const QUANTITY_OPTIONS: Quantity[] = [1, 2, 3];
 
-const MODE_OPTIONS: ReadonlyArray<{ id: Mode; label: string }> = [
-  { id: "normal", label: "Normal" },
-  { id: "boost", label: "Boost" },
-  { id: "jester", label: "Jester" },
+const MODE_OPTIONS: ReadonlyArray<{ id: Mode; label: string; hint: string }> = [
+  { id: "normal", label: "Normal", hint: "Standardowe szanse" },
+  { id: "boost", label: "Boost", hint: "x2 cena, x2 szansa na drogie" },
+  { id: "jester", label: "Jester", hint: "Równe szanse" },
 ];
 
 // Reel tile sizes scale down as the count grows so the stack stays readable.
@@ -43,7 +48,7 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
   const balanceCents = useGameStore((s) => s.balanceCents);
   const openCase = useGameStore((s) => s.openCase);
 
-  const mode: Mode = "normal";
+  const [mode, setMode] = useState<Mode>("normal");
   const [quantity, setQuantity] = useState<Quantity>(1);
   const [results, setResults] = useState<RollResult[] | null>(null);
   const [isRolling, setIsRolling] = useState(false);
@@ -52,11 +57,13 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
   const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
   const stackTileSize = reelTileSize(quantity, isMobile);
 
-  const totalCost = caseData.priceCents * quantity;
+  const priceMultiplier = getModePriceMultiplier(mode);
+  const unitCost = caseData.priceCents * priceMultiplier;
+  const totalCost = unitCost * quantity;
   const canAfford = balanceCents >= totalCost;
 
-  const dropsWithChances = useMemo(
-    () => getDropsWithChances(caseData, mode),
+  const effectiveDrops = useMemo(
+    () => getEffectiveDrops(caseData, mode),
     [caseData, mode]
   );
 
@@ -87,7 +94,7 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
     const newResults: RollResult[] = [];
     const stamp = Date.now();
     for (let i = 0; i < safeQuantity; i++) {
-      const r = openCase(caseData.id);
+      const r = openCase(caseData.id, mode);
       if (r.ok) {
         newResults.push({
           key: `${stamp}-${i}-${r.item.instanceId}`,
@@ -114,6 +121,11 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
       completedRef.current = 0;
       setResults(null);
     }
+  };
+
+  const handleModeChange = (m: Mode) => {
+    if (isRolling) return;
+    setMode(m);
   };
 
   const onReelResolved = () => {
@@ -168,21 +180,28 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
                 {MODE_OPTIONS.map((opt) => {
                   const selected = mode === opt.id;
                   return (
-                    <div
+                    <button
                       key={opt.id}
-                      aria-disabled="true"
-                      title="Wkrótce"
-                      className={`relative px-3 py-3 rounded-lg border text-sm font-bold text-center select-none cursor-not-allowed opacity-70 ${
+                      type="button"
+                      onClick={() => handleModeChange(opt.id)}
+                      disabled={isRolling}
+                      aria-pressed={selected}
+                      title={opt.hint}
+                      className={`relative px-3 py-3 rounded-lg border text-sm font-bold text-center select-none transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                         selected
-                          ? "bg-cyan-500/15 border-cyan-400/60 text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,0.18)]"
-                          : "bg-slate-900/50 border-slate-700/40 text-slate-400"
+                          ? "bg-cyan-500/20 border-cyan-400/70 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.25)]"
+                          : "bg-slate-900/50 border-slate-700/40 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-200"
                       }`}
                     >
                       <span className="block">{opt.label}</span>
-                      <span className="block text-[9px] font-medium uppercase tracking-wider text-slate-500 mt-0.5">
-                        Wkrótce
+                      <span
+                        className={`block text-[9px] font-medium uppercase tracking-wider mt-0.5 ${
+                          selected ? "text-cyan-200/80" : "text-slate-500"
+                        }`}
+                      >
+                        {opt.hint}
                       </span>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -284,7 +303,7 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
             </p>
             {quantity > 1 && (
               <p className="text-[11px] text-slate-500 mt-0.5 font-mono">
-                {formatMoney(caseData.priceCents)} × {quantity}
+                {formatMoney(unitCost)} × {quantity}
               </p>
             )}
           </div>
@@ -301,7 +320,7 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
             </p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {dropsWithChances.map((d) => {
+            {effectiveDrops.map((d) => {
               const r = rarityColors[d.rarity];
               return (
                 <div

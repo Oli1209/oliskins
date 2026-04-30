@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { GameState, InventoryItem } from "../lib/types";
 import { mockCases } from "../data/mockCases";
 import { pickWeighted } from "../lib/random";
+import { getEffectiveDrops, getModePriceMultiplier } from "../lib/chances";
 
 export const useGameStore = create<GameState>()(
   persist(
@@ -19,15 +20,23 @@ export const useGameStore = create<GameState>()(
       reset: () =>
         set({ balanceCents: 1000, inventory: [], inventorySort: "date_new" }),
 
-      openCase: (caseId) => {
+      openCase: (caseId, mode = "normal") => {
         const state = get();
         const caseData = mockCases.find((c) => c.id === caseId);
 
         if (!caseData) return { ok: false, reason: "unknown_case" };
-        if (state.balanceCents < caseData.priceCents)
+
+        const cost = caseData.priceCents * getModePriceMultiplier(mode);
+        if (state.balanceCents < cost)
           return { ok: false, reason: "insufficient" };
 
-        const drop = pickWeighted(caseData.drops);
+        // Single RNG path: derive mode-aware weights via getEffectiveDrops
+        // and feed them into pickWeighted using the `weight` field.
+        const pickable = getEffectiveDrops(caseData, mode).map((d) => ({
+          ...d,
+          weight: d.effectiveWeight,
+        }));
+        const drop = pickWeighted(pickable);
 
         const newItem: InventoryItem = {
           instanceId: crypto.randomUUID(),
@@ -41,7 +50,7 @@ export const useGameStore = create<GameState>()(
         };
 
         set((s) => ({
-          balanceCents: s.balanceCents - caseData.priceCents,
+          balanceCents: s.balanceCents - cost,
           inventory: [...s.inventory, newItem],
         }));
 
