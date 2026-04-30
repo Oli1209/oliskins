@@ -5,15 +5,13 @@ import { rarityColors } from "../lib/rarity";
 type Props = {
   caseData: Case;
   winningItem: InventoryItem;
-  skipSignal: number;
   onResolved: () => void;
-  compact?: boolean;
+  tileSize?: number;
 };
 
 const REEL_LENGTH = 45;
 const WINNING_INDEX = 35;
 const ROLL_DURATION_MS = 5000;
-const SKIP_DURATION_MS = 1000;
 
 function pickRandomDrop(drops: Drop[]): Drop {
   return drops[Math.floor(Math.random() * drops.length)];
@@ -22,29 +20,20 @@ function pickRandomDrop(drops: Drop[]): Drop {
 export function CaseReelStrip({
   caseData,
   winningItem,
-  skipSignal,
   onResolved,
-  compact = false,
+  tileSize: tileSizeProp,
 }: Props) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const targetXRef = useRef<number>(0);
   const resolvedRef = useRef(false);
   const resolveTimerRef = useRef<number | null>(null);
-  const skipAppliedRef = useRef(false);
 
   const [translateX, setTranslateX] = useState(0);
-  const [durationMs, setDurationMs] = useState(ROLL_DURATION_MS);
   const [isAnimating, setIsAnimating] = useState(false);
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
-  const tileSize = compact
-    ? isMobile
-      ? 72
-      : 104
-    : isMobile
-      ? 102
-      : 153;
+  const tileSize = tileSizeProp ?? (isMobile ? 102 : 153);
   const tileGap = 10;
   const spacing = tileSize + tileGap;
 
@@ -118,49 +107,6 @@ export function CaseReelStrip({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Skip handling: when skipSignal increments, rebase the animation so
-  // the reel finishes in ~1000ms from its current position. Applies once.
-  useEffect(() => {
-    if (skipSignal === 0 || resolvedRef.current) return;
-    if (skipAppliedRef.current) return;
-    const track = trackRef.current;
-    if (!track) return;
-    skipAppliedRef.current = true;
-
-    const cs = window.getComputedStyle(track);
-    let currentX = 0;
-    try {
-      const matrix = new DOMMatrixReadOnly(cs.transform);
-      currentX = matrix.m41;
-    } catch {
-      currentX = translateX;
-    }
-
-    setIsAnimating(false);
-    setTranslateX(currentX);
-    setDurationMs(SKIP_DURATION_MS);
-
-    const f1 = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setIsAnimating(true);
-        setTranslateX(targetXRef.current);
-      });
-    });
-
-    if (resolveTimerRef.current) window.clearTimeout(resolveTimerRef.current);
-    resolveTimerRef.current = window.setTimeout(() => {
-      if (!resolvedRef.current) {
-        resolvedRef.current = true;
-        onResolved();
-      }
-    }, SKIP_DURATION_MS + 120);
-
-    return () => {
-      cancelAnimationFrame(f1);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [skipSignal]);
-
   return (
     <div
       ref={viewportRef}
@@ -176,7 +122,7 @@ export function CaseReelStrip({
           paddingRight: 12,
           transform: `translate3d(${translateX}px, 0, 0)`,
           transition: isAnimating
-            ? `transform ${durationMs}ms cubic-bezier(0.12, 0.8, 0.2, 1)`
+            ? `transform ${ROLL_DURATION_MS}ms cubic-bezier(0.12, 0.8, 0.2, 1)`
             : "none",
         }}
       >

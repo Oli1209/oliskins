@@ -1,0 +1,46 @@
+Rebuild the case opening/details modal to match the provided sketch (bigger, wider, clearer). This is UI/layout + derived chance display only. Do NOT change store/RNG logic.
+
+A) Remove skip
+Completely remove the “Pomiń animację” button and all related state/handlers/timers.
+B) Modal sizing + structure (wider + functions on sides)
+Make the modal significantly wider on desktop:
+
+max-width around 1200–1400px, with generous padding.
+Keep responsive: on mobile stack sections vertically.
+Layout inside modal (in this order):
+
+Top header block (glass):
+Title: “Menu otwierania”
+Case name
+Base price display (formatted #X.XX)
+Add a line: “Cena może się zmieniać po wyborze trybu (wkrótce)” (placeholder)
+Main reel area (big central rectangle):
+Large container for reels (like in sketch).
+Depending on selected quantity (1–5), render that many horizontal reel lanes stacked vertically with small gap.
+Keep current reel animation behavior and randomness exactly as-is.
+Action row (spread to sides like sketch):
+Left: quantity selector as 5 rounded tiles/buttons: 1,2,3,4,5 (default 1). Label: “Ilość”.
+Center: a prominent CTA button “Otwórz”.
+Right: “Cena otwarcia” showing total cost = casePrice * quantity (formatted).
+Drops section at bottom (full width bar/panel):
+Title: “Dropy możliwe (cena + szansa)”
+Show items in a grid or table row style with:
+image, name, rarity badge, value (#X.XX), and chance percent (two decimals)
+C) Quantity max 5
+Change any quantity logic from max 3 to max 5.
+On open: perform N opens and show N reels (and N results) consistently.
+D) Chances (%) derived from weights (future-proof for modes)
+Compute chance% from weights: chance = (weight / sumWeights) * 100
+Display with two decimals: chance.toFixed(2) + "%".
+Implement a helper function e.g. getDropsWithChances(caseId, mode) even if mode is currently always “normal”, so later switching mode can update the displayed chances without page reload.
+E) Modes UI (placeholder only)
+Show mode selector (Normal/Boost/Jester) in the top area or side area, styled nicely.
+For now: modes are disabled (unclickable) and show subtle “Wkrótce”.
+Keep Normal visually selected by default.
+Acceptance:
+
+Modal is wider and matches the sketch’s structure (header, big reel, bottom action row spread, drops bar).
+Skip is gone.
+Quantity supports 1–5 and reels scale accordingly.
+Drop list shows value + chance% (2 decimals) correctly from weights.
+Store/RNG and inventory/balance behavior remains correct.
