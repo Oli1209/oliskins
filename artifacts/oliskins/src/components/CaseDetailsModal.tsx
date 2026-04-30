@@ -7,6 +7,7 @@ import { mockCases } from "../data/mockCases";
 import { formatMoney } from "../lib/format";
 import { rarityColors } from "../lib/rarity";
 import { CaseReelStrip } from "./CaseReelStrip";
+import { OpeningSummary } from "./OpeningSummary";
 import {
   Mode,
   formatChance,
@@ -52,7 +53,11 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
   const [quantity, setQuantity] = useState<Quantity>(1);
   const [results, setResults] = useState<RollResult[] | null>(null);
   const [isRolling, setIsRolling] = useState(false);
+  const [summaryItems, setSummaryItems] = useState<InventoryItem[] | null>(null);
   const completedRef = useRef(0);
+
+  const summaryOpen = summaryItems !== null;
+  const interactionLocked = isRolling || summaryOpen;
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
   const stackTileSize = reelTileSize(quantity, isMobile);
@@ -86,7 +91,7 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
   }, []);
 
   const handleOpen = () => {
-    if (isRolling) return;
+    if (interactionLocked) return;
     if (!canAfford) return;
 
     const safeQuantity = Math.min(quantity, MAX_QUANTITY);
@@ -111,7 +116,7 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
   };
 
   const handleQuantityChange = (q: Quantity) => {
-    if (isRolling) return;
+    if (interactionLocked) return;
     const next = Math.min(q, MAX_QUANTITY) as Quantity;
     setQuantity(next);
     // Clear previous reel lanes so the container immediately reflects the
@@ -123,7 +128,7 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
   };
 
   const handleModeChange = (m: Mode) => {
-    if (isRolling) return;
+    if (interactionLocked) return;
     setMode(m);
   };
 
@@ -131,7 +136,12 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
     completedRef.current += 1;
     if (results && completedRef.current >= results.length) {
       setIsRolling(false);
+      setSummaryItems(results.map((r) => r.winner));
     }
+  };
+
+  const handleSummaryClose = () => {
+    setSummaryItems(null);
   };
 
   const reelPlaceholderHeight = stackTileSize + 24;
@@ -183,7 +193,7 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
                       key={opt.id}
                       type="button"
                       onClick={() => handleModeChange(opt.id)}
-                      disabled={isRolling}
+                      disabled={interactionLocked}
                       aria-pressed={selected}
                       title={opt.hint}
                       className={`relative px-3 py-3 rounded-lg border text-sm font-bold text-center select-none transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -261,7 +271,7 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
                   <button
                     key={q}
                     onClick={() => handleQuantityChange(q)}
-                    disabled={isRolling}
+                    disabled={interactionLocked}
                     className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl border text-base font-black transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                       selected
                         ? "bg-cyan-500/20 border-cyan-400/70 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.25)]"
@@ -280,12 +290,12 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
           <div className="flex flex-col items-stretch">
             <button
               onClick={handleOpen}
-              disabled={!canAfford || isRolling}
+              disabled={!canAfford || interactionLocked}
               className="neon-button w-full h-14 sm:h-16 text-lg sm:text-xl tracking-wide disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isRolling ? "Otwieranie..." : "Otwórz"}
             </button>
-            {!canAfford && !isRolling && (
+            {!canAfford && !interactionLocked && (
               <p className="text-red-400/80 text-xs mt-2 text-center font-semibold">
                 Za mało środków
               </p>
@@ -365,6 +375,10 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
           </div>
         </div>
       </div>
+
+      {summaryItems && (
+        <OpeningSummary items={summaryItems} onClose={handleSummaryClose} />
+      )}
     </div>
   );
 }

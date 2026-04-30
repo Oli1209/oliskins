@@ -1,0 +1,48 @@
+Add a post-opening summary overlay shown after the roll animation finishes for ANY case (paid or free). Keep core RNG/store logic unchanged. Use the existing behavior where opened items already land in inventory.
+
+Goal
+After opening 1–3 cases (quantity), show a centered summary view with:
+
+Large tiles of the newly won item(s) side-by-side
+Primary actions:
+“Sprzedaj wszystko (#+TOTAL)”
+“Zachowaj”
+Per-item action on hover: “Sprzedaj” for that specific item
+Implementation details
+Track which items were just opened:
+When opening returns InventoryItem(s), store their instanceIds in a local state array recentInstanceIds.
+
+Use this list to render the summary tiles.
+
+Summary UI
+Show overlay/modal on top of the opening modal after the roll ends.
+
+Render the won items as bigger cards (image, name, rarity, value).
+
+On desktop hover over a tile: show a subtle button “Sprzedaj” for that tile.
+
+On mobile (no hover): show the per-item “Sprzedaj” button always or via a small menu.
+
+Actions
+“Sprzedaj wszystko”:
+
+Sum values of ONLY the recent items (by instanceId)
+Sell them by calling store sellItem(instanceId) for each (skip locked protection should not matter because these new items should not be locked by default)
+Show total sold value in button label.
+“Zachowaj”:
+
+Just closes the summary overlay (items are already in inventory).
+Selling a single item from the summary removes it from the summary list and updates the total.
+
+Auto-close behavior
+If the recent summary list becomes empty (all sold) OR user clicks “Zachowaj”, automatically close the summary and return to the case opening menu UI.
+
+Safety / UX
+Disable opening buttons while summary is visible to prevent stacking states.
+Ensure no duplicate selling (guard against double-click by disabling buttons while processing).
+Keep Polish UI labels.
+Acceptance
+After each opening, summary appears with the correct items.
+Sell all sells only those items, not the entire inventory.
+Sell single works.
+Auto-close triggers when all recent items are handled.

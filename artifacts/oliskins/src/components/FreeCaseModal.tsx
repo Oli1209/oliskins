@@ -7,6 +7,7 @@ import { freeCases } from "../data/freeCases";
 import { formatMoney } from "../lib/format";
 import { rarityColors } from "../lib/rarity";
 import { FreeCaseReelStrip } from "./FreeCaseReelStrip";
+import { OpeningSummary } from "./OpeningSummary";
 import { formatChance } from "../lib/chances";
 import { useFreeCooldown, formatCooldown } from "../hooks/useFreeCooldown";
 import { Case } from "../lib/types";
@@ -40,7 +41,11 @@ function FreeCaseModalInner({ caseData }: { caseData: FreeCase }) {
   const [result, setResult] = useState<RollResult | null>(null);
   const [isRolling, setIsRolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [summaryItems, setSummaryItems] = useState<InventoryItem[] | null>(null);
   const resolvedRef = useRef(false);
+
+  const summaryOpen = summaryItems !== null;
+  const interactionLocked = isRolling || summaryOpen;
 
   const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
   const tileSize = isMobile ? 102 : 153;
@@ -71,7 +76,7 @@ function FreeCaseModalInner({ caseData }: { caseData: FreeCase }) {
     chancePct: totalWeight > 0 ? (d.weight / totalWeight) * 100 : 0,
   }));
 
-  const canOpen = !isRolling && !isLockedByLevel && ready;
+  const canOpen = !interactionLocked && !isLockedByLevel && ready;
 
   const handleOpen = () => {
     if (!canOpen) return;
@@ -96,6 +101,11 @@ function FreeCaseModalInner({ caseData }: { caseData: FreeCase }) {
     if (resolvedRef.current) return;
     resolvedRef.current = true;
     setIsRolling(false);
+    if (result) setSummaryItems([result.winner]);
+  };
+
+  const handleSummaryClose = () => {
+    setSummaryItems(null);
   };
 
   const reelCaseData = freeCaseToCase(caseData);
@@ -274,6 +284,10 @@ function FreeCaseModalInner({ caseData }: { caseData: FreeCase }) {
           </div>
         </div>
       </div>
+
+      {summaryItems && (
+        <OpeningSummary items={summaryItems} onClose={handleSummaryClose} />
+      )}
     </div>
   );
 }
