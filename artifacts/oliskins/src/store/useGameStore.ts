@@ -5,6 +5,7 @@ import {
   InventoryItem,
   Stats,
   FREE_CASE_COOLDOWN_MS,
+  CENTS_PER_XP,
   computeLevel,
 } from "../lib/types";
 import { mockCases } from "../data/mockCases";
@@ -29,11 +30,19 @@ export const useGameStore = create<GameState>()(
       inventorySort: "date_new",
       stats: { ...DEFAULT_STATS },
       lastFreeOpenAt: null,
+      xp: 0,
 
       addBalanceCents: (delta) =>
         set((state) => ({
           balanceCents: Math.max(0, state.balanceCents + delta),
         })),
+
+      addXp: (delta) =>
+        set((state) => {
+          const safe = Math.floor(delta);
+          if (!isFinite(safe) || safe <= 0) return state;
+          return { xp: state.xp + safe };
+        }),
 
       reset: () =>
         set({
@@ -42,6 +51,7 @@ export const useGameStore = create<GameState>()(
           inventorySort: "date_new",
           stats: { ...DEFAULT_STATS },
           lastFreeOpenAt: null,
+          xp: 0,
         }),
 
       openCase: (caseId, mode = "normal") => {
@@ -71,16 +81,27 @@ export const useGameStore = create<GameState>()(
           locked: false,
         };
 
-        set((s) => ({
-          balanceCents: s.balanceCents - cost,
-          inventory: [...s.inventory, newItem],
-          stats: {
-            ...s.stats,
-            casesOpened: s.stats.casesOpened + 1,
-            totalSpentCents: s.stats.totalSpentCents + cost,
-            totalWonCents: s.stats.totalWonCents + drop.valueCents,
-          },
-        }));
+        set((s) => {
+          const prevSpent = s.stats.totalSpentCents;
+          const newSpent = prevSpent + cost;
+          // Accrue 1 XP per CENTS_PER_XP cumulatively spent. Computing the
+          // delta against the previous total ensures correct XP across
+          // multi-open batches and Boost-doubled costs.
+          const xpDelta =
+            Math.floor(newSpent / CENTS_PER_XP) -
+            Math.floor(prevSpent / CENTS_PER_XP);
+          return {
+            balanceCents: s.balanceCents - cost,
+            inventory: [...s.inventory, newItem],
+            xp: s.xp + xpDelta,
+            stats: {
+              ...s.stats,
+              casesOpened: s.stats.casesOpened + 1,
+              totalSpentCents: newSpent,
+              totalWonCents: s.stats.totalWonCents + drop.valueCents,
+            },
+          };
+        });
 
         return { ok: true, item: newItem };
       },
@@ -90,7 +111,7 @@ export const useGameStore = create<GameState>()(
         const caseData = freeCases.find((c) => c.id === caseId);
         if (!caseData) return { ok: false, reason: "unknown_case" };
 
-        const level = computeLevel(state.stats.casesOpened);
+        const level = computeLevel(state.xp);
         if (level < caseData.requiredLevel)
           return { ok: false, reason: "locked_level" };
 
@@ -173,7 +194,7 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: "oliskins_state_v1",
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<GameState>;
         if (version < 1) {
@@ -186,6 +207,15 @@ export const useGameStore = create<GameState>()(
         if (version < 2) {
           state.stats = { ...DEFAULT_STATS, ...(state.stats ?? {}) };
           state.lastFreeOpenAt = state.lastFreeOpenAt ?? null;
+        }
+        if (version < 3) {
+          // XP system replaces the old casesOpened-based level. Initialize
+          // XP from already-spent money so existing players don't lose
+          // progression.
+          if (state.xp == null) {
+            const spent = state.stats?.totalSpentCents ?? 0;
+            state.xp = Math.floor(spent / CENTS_PER_XP);
+          }
         }
         return state as GameState;
       },

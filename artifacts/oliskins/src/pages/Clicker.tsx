@@ -40,9 +40,9 @@ export function Clicker() {
     lastClickTimeRef.current = now;
     clickTimesRef.current.push(now);
     
-    addBalanceCents(1);
+    addBalanceCents(2);
     setSessionClicks(prev => prev + 1);
-    setSessionCents(prev => prev + 1);
+    setSessionCents(prev => prev + 2);
 
     // Calculate float position
     let x = 0;
@@ -108,7 +108,7 @@ export function Clicker() {
               id={float.id}
               x={float.x}
               y={float.y}
-              text={formatGain(1)}
+              text={formatGain(2)}
               onComplete={handleFloatComplete}
             />
           ))}

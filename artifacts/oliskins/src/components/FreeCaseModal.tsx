@@ -30,9 +30,9 @@ function freeCaseToCase(fc: FreeCase): Case {
 function FreeCaseModalInner({ caseData }: { caseData: FreeCase }) {
   const navigate = useNavigate();
   const openFreeCase = useGameStore((s) => s.openFreeCase);
-  const stats = useGameStore((s) => s.stats);
+  const xp = useGameStore((s) => s.xp);
 
-  const level = computeLevel(stats.casesOpened);
+  const level = computeLevel(xp);
   const isLockedByLevel = level < caseData.requiredLevel;
 
   const { msLeft, ready } = useFreeCooldown();

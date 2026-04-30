@@ -75,8 +75,10 @@ export type GameState = {
   inventorySort: InventorySort;  // default "date_new"
   stats: Stats;
   lastFreeOpenAt: number | null;
+  xp: number;                    // total XP earned (paid openings only)
 
   addBalanceCents: (delta: number) => void;
+  addXp: (delta: number) => void;
   reset: () => void;
   openCase: (caseId: string, mode?: Mode) => { ok: true; item: InventoryItem } | { ok: false; reason: "insufficient" | "unknown_case" };
   openFreeCase: (caseId: string) => OpenFreeCaseResult;
@@ -88,6 +90,21 @@ export type GameState = {
 
 export const FREE_CASE_COOLDOWN_MS = 60 * 60 * 1000; // 1h
 
-export function computeLevel(casesOpened: number): number {
-  return 1 + Math.floor(casesOpened / 10);
+export const XP_PER_LEVEL = 100;
+export const CENTS_PER_XP = 500; // #5.00 spent = 1 XP
+
+/** Level derived from XP. 100 XP per level. */
+export function computeLevel(xp: number): number {
+  return 1 + Math.floor(Math.max(0, xp) / XP_PER_LEVEL);
+}
+
+/** XP within the current level (0..XP_PER_LEVEL-1). */
+export function getCurrentLevelXp(xp: number): number {
+  return Math.max(0, xp) % XP_PER_LEVEL;
+}
+
+/** XP earned for a paid opening of `totalCostCents`. Floors to integer. */
+export function xpForSpend(totalCostCents: number): number {
+  if (totalCostCents <= 0) return 0;
+  return Math.floor(totalCostCents / CENTS_PER_XP);
 }

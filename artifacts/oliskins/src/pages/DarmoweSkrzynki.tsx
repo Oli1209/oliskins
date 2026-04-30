@@ -8,8 +8,8 @@ import { rarityColors } from "../lib/rarity";
 import { useFreeCooldown, formatCooldown } from "../hooks/useFreeCooldown";
 
 export function DarmoweSkrzynki() {
-  const stats = useGameStore((s) => s.stats);
-  const level = computeLevel(stats.casesOpened);
+  const xp = useGameStore((s) => s.xp);
+  const level = computeLevel(xp);
   const { msLeft, ready } = useFreeCooldown();
 
   return (
