@@ -5,6 +5,7 @@ import { Start } from "./pages/Start";
 import { Skrzynki } from "./pages/Skrzynki";
 import { Ekwipunek } from "./pages/Ekwipunek";
 import { Clicker } from "./pages/Clicker";
+import { CaseDetailsRoute } from "./components/CaseDetailsModal";
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -26,7 +27,9 @@ function App() {
         <main className="flex-1">
           <Routes>
             <Route path="/" element={<Start />} />
-            <Route path="/skrzynki" element={<Skrzynki />} />
+            <Route path="/skrzynki" element={<Skrzynki />}>
+              <Route path=":caseId" element={<CaseDetailsRoute />} />
+            </Route>
             <Route path="/ekwipunek" element={<Ekwipunek />} />
             <Route path="/clicker" element={<Clicker />} />
             <Route path="*" element={<NotFound />} />
