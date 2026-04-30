@@ -1,9 +1,25 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { GameState, InventoryItem } from "../lib/types";
+import {
+  GameState,
+  InventoryItem,
+  Stats,
+  FREE_CASE_COOLDOWN_MS,
+  computeLevel,
+} from "../lib/types";
 import { mockCases } from "../data/mockCases";
+import { freeCases } from "../data/freeCases";
 import { pickWeighted } from "../lib/random";
 import { getEffectiveDrops, getTotalCostCents } from "../lib/chances";
+
+const DEFAULT_STATS: Stats = {
+  totalWonCents: 0,
+  totalSpentCents: 0,
+  casesOpened: 0,
+  freeCasesOpened: 0,
+  totalBattles: 0,
+  wonBattles: 0,
+};
 
 export const useGameStore = create<GameState>()(
   persist(
@@ -11,6 +27,8 @@ export const useGameStore = create<GameState>()(
       balanceCents: 1000,
       inventory: [],
       inventorySort: "date_new",
+      stats: { ...DEFAULT_STATS },
+      lastFreeOpenAt: null,
 
       addBalanceCents: (delta) =>
         set((state) => ({
@@ -18,7 +36,13 @@ export const useGameStore = create<GameState>()(
         })),
 
       reset: () =>
-        set({ balanceCents: 1000, inventory: [], inventorySort: "date_new" }),
+        set({
+          balanceCents: 1000,
+          inventory: [],
+          inventorySort: "date_new",
+          stats: { ...DEFAULT_STATS },
+          lastFreeOpenAt: null,
+        }),
 
       openCase: (caseId, mode = "normal") => {
         const state = get();
@@ -30,8 +54,6 @@ export const useGameStore = create<GameState>()(
         if (state.balanceCents < cost)
           return { ok: false, reason: "insufficient" };
 
-        // Single RNG path: derive mode-aware weights via getEffectiveDrops
-        // and feed them into pickWeighted using the `weight` field.
         const pickable = getEffectiveDrops(caseData, mode).map((d) => ({
           ...d,
           weight: d.effectiveWeight,
@@ -52,6 +74,56 @@ export const useGameStore = create<GameState>()(
         set((s) => ({
           balanceCents: s.balanceCents - cost,
           inventory: [...s.inventory, newItem],
+          stats: {
+            ...s.stats,
+            casesOpened: s.stats.casesOpened + 1,
+            totalSpentCents: s.stats.totalSpentCents + cost,
+            totalWonCents: s.stats.totalWonCents + drop.valueCents,
+          },
+        }));
+
+        return { ok: true, item: newItem };
+      },
+
+      openFreeCase: (caseId) => {
+        const state = get();
+        const caseData = freeCases.find((c) => c.id === caseId);
+        if (!caseData) return { ok: false, reason: "unknown_case" };
+
+        const level = computeLevel(state.stats.casesOpened);
+        if (level < caseData.requiredLevel)
+          return { ok: false, reason: "locked_level" };
+
+        const now = Date.now();
+        if (
+          state.lastFreeOpenAt !== null &&
+          now - state.lastFreeOpenAt < FREE_CASE_COOLDOWN_MS
+        ) {
+          return { ok: false, reason: "cooldown" };
+        }
+
+        const drop = pickWeighted(caseData.drops);
+
+        const newItem: InventoryItem = {
+          instanceId: crypto.randomUUID(),
+          dropId: drop.id,
+          name: drop.name,
+          rarity: drop.rarity,
+          image: drop.image,
+          valueCents: drop.valueCents,
+          acquiredAt: now,
+          locked: false,
+        };
+
+        set((s) => ({
+          inventory: [...s.inventory, newItem],
+          lastFreeOpenAt: now,
+          stats: {
+            ...s.stats,
+            casesOpened: s.stats.casesOpened + 1,
+            freeCasesOpened: s.stats.freeCasesOpened + 1,
+            totalWonCents: s.stats.totalWonCents + drop.valueCents,
+          },
         }));
 
         return { ok: true, item: newItem };
@@ -101,7 +173,7 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: "oliskins_state_v1",
-      version: 1,
+      version: 2,
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<GameState>;
         if (version < 1) {
@@ -110,6 +182,10 @@ export const useGameStore = create<GameState>()(
             locked: (it as Partial<InventoryItem>).locked ?? false,
           }));
           state.inventorySort = state.inventorySort ?? "date_new";
+        }
+        if (version < 2) {
+          state.stats = { ...DEFAULT_STATS, ...(state.stats ?? {}) };
+          state.lastFreeOpenAt = state.lastFreeOpenAt ?? null;
         }
         return state as GameState;
       },

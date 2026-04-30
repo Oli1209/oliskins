@@ -1,0 +1,70 @@
+Add a lightweight Profile/Level/Stats system and refactor the free case feature into “Darmowe skrzynki” (5 tiers). Frontend-only, persisted in Zustand/localStorage. Keep core opening logic intact.
+
+0) Core rules
+Free cases: Normal only (no Boost/Jester), and quantity always 1.
+Cooldown: 1 hour global for opening any free case.
+1) Header update
+To the right side near balance, add an icon/button: “Profil” (person icon + label).
+Clicking opens a small profile modal/dropdown.
+2) Persisted profile state + stats
+Extend persisted store with:
+
+stats:
+totalWonCents (sum of values of all obtained items)
+totalSpentCents (sum of all paid case opening costs; free cases add 0)
+casesOpened (count of all opened cases incl. free)
+freeCasesOpened (count)
+totalBattles (keep but always 0 for now)
+wonBattles (keep but always 0 for now)
+level: number
+lastFreeOpenAt: number | null (global free cooldown)
+Update logic:
+
+When opening any paid case successfully:
+increment casesOpened
+add to totalSpentCents the computed total cost
+When an item is obtained (paid or free):
+add item value to totalWonCents
+When opening a free case:
+increment casesOpened and freeCasesOpened
+set lastFreeOpenAt = Date.now()
+Level rule (simple and deterministic):
+
+level = 1 + Math.floor(casesOpened / 10) (10 opens = +1 level)
+3) Profile UI
+Profile modal/dropdown shows:
+
+“Poziom: {level}”
+Stats list (Polish labels):
+“Łącznie wygrano: #X.XX”
+“Łącznie wydano: #X.XX”
+“Otwarte skrzynki: N”
+“Darmowe skrzynki: N”
+“Bitwy: 0” and “Wygrane bitwy: 0”
+4) New route: /darmowe-skrzynki
+Add nav link “Darmowe skrzynki” (replaces the single free case link).
+Page shows 5 free cases (cards) with tier requirements:
+Tier1 required level: 1
+Tier2: 20
+Tier3: 30
+Tier4: 40
+Tier5: 50
+Each card shows:
+name, description, required level, locked/unlocked state
+button “Otwórz” only if unlocked AND cooldown available
+if locked: “Wymagany poziom: X”
+5) Cooldown UI (global)
+If cooldown not ready, show countdown “Dostępne za: MM:SS” (or HH:MM:SS) on the page and disable all free open buttons.
+Countdown updates every 1s.
+6) Free case data
+Define 5 free cases with their own drop pools (increasing quality).
+Chance% display on details view: show value + chance% (2 decimals) derived from weights.
+Opening a free case uses the same reel animation modal but forced:
+mode = Normal
+quantity = 1
+7) Acceptance
+Profile shows level and stats and persists after refresh.
+Level increases with opened cases.
+Free cases unlock by level.
+Global 1h cooldown works for any free case.
+Free cases cannot use Boost/Jester and cannot open 2–3 at once.

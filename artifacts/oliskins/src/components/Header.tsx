@@ -1,7 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
 import { useGameStore } from "../store/useGameStore";
-import { RotateCcw, PackageOpen, Backpack, MousePointerClick } from "lucide-react";
+import { RotateCcw, PackageOpen, Backpack, MousePointerClick, Gift } from "lucide-react";
 import { BalancePill } from "./BalancePill";
+import { Profile } from "./Profile";
 
 export function Header() {
   const { balanceCents, reset } = useGameStore();
@@ -15,6 +16,7 @@ export function Header() {
 
   const navItems = [
     { path: "/skrzynki", label: "Skrzynki", icon: PackageOpen },
+    { path: "/darmowe-skrzynki", label: "Darmowe skrzynki", icon: Gift },
     { path: "/ekwipunek", label: "Ekwipunek", icon: Backpack },
     { path: "/clicker", label: "Clicker", icon: MousePointerClick },
   ];
@@ -49,6 +51,7 @@ export function Header() {
 
         <div className="flex items-center gap-3">
           <BalancePill balanceCents={balanceCents} />
+          <Profile />
           <button
             onClick={handleReset}
             className="p-2 rounded-full text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-colors"

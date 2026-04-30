@@ -5,7 +5,9 @@ import { Start } from "./pages/Start";
 import { Skrzynki } from "./pages/Skrzynki";
 import { Ekwipunek } from "./pages/Ekwipunek";
 import { Clicker } from "./pages/Clicker";
+import { DarmoweSkrzynki } from "./pages/DarmoweSkrzynki";
 import { CaseDetailsRoute } from "./components/CaseDetailsModal";
+import { FreeCaseRoute } from "./components/FreeCaseModal";
 
 const basename = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -29,6 +31,9 @@ function App() {
             <Route path="/" element={<Start />} />
             <Route path="/skrzynki" element={<Skrzynki />}>
               <Route path=":caseId" element={<CaseDetailsRoute />} />
+            </Route>
+            <Route path="/darmowe-skrzynki" element={<DarmoweSkrzynki />}>
+              <Route path=":caseId" element={<FreeCaseRoute />} />
             </Route>
             <Route path="/ekwipunek" element={<Ekwipunek />} />
             <Route path="/clicker" element={<Clicker />} />
