@@ -31,6 +31,7 @@ export function CaseReelStrip({
   const targetXRef = useRef<number>(0);
   const resolvedRef = useRef(false);
   const resolveTimerRef = useRef<number | null>(null);
+  const skipAppliedRef = useRef(false);
 
   const [translateX, setTranslateX] = useState(0);
   const [durationMs, setDurationMs] = useState(ROLL_DURATION_MS);
@@ -118,11 +119,13 @@ export function CaseReelStrip({
   }, []);
 
   // Skip handling: when skipSignal increments, rebase the animation so
-  // the reel finishes in ~1000ms from its current position.
+  // the reel finishes in ~1000ms from its current position. Applies once.
   useEffect(() => {
     if (skipSignal === 0 || resolvedRef.current) return;
+    if (skipAppliedRef.current) return;
     const track = trackRef.current;
     if (!track) return;
+    skipAppliedRef.current = true;
 
     const cs = window.getComputedStyle(track);
     let currentX = 0;

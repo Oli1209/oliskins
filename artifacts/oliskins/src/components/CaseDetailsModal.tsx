@@ -16,10 +16,10 @@ type RollResult = {
   winner: InventoryItem;
 };
 
-const MODE_OPTIONS: ReadonlyArray<{ id: Mode; label: string; soon: boolean }> = [
-  { id: "normal", label: "Normal", soon: false },
-  { id: "boost", label: "Boost", soon: true },
-  { id: "jester", label: "Jester", soon: true },
+const MODE_OPTIONS: ReadonlyArray<{ id: Mode; label: string }> = [
+  { id: "normal", label: "Normal" },
+  { id: "boost", label: "Boost" },
+  { id: "jester", label: "Jester" },
 ];
 
 function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
@@ -27,12 +27,14 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
   const balanceCents = useGameStore((s) => s.balanceCents);
   const openCase = useGameStore((s) => s.openCase);
 
-  const [mode, setMode] = useState<Mode>("normal");
+  const mode: Mode = "normal";
   const [quantity, setQuantity] = useState<Quantity>(1);
   const [results, setResults] = useState<RollResult[] | null>(null);
   const [isRolling, setIsRolling] = useState(false);
+  const [isSkipping, setIsSkipping] = useState(false);
   const [skipSignal, setSkipSignal] = useState(0);
   const completedRef = useRef(0);
+  const hasSkippedRef = useRef(false);
 
   const totalCost = caseData.priceCents * quantity;
   const canAfford = balanceCents >= totalCost;
@@ -73,6 +75,8 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
     if (newResults.length === 0) return;
 
     completedRef.current = 0;
+    hasSkippedRef.current = false;
+    setIsSkipping(false);
     setSkipSignal(0);
     setResults(newResults);
     setIsRolling(true);
@@ -80,6 +84,9 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
 
   const handleSkip = () => {
     if (!isRolling) return;
+    if (hasSkippedRef.current) return;
+    hasSkippedRef.current = true;
+    setIsSkipping(true);
     setSkipSignal((s) => s + 1);
   };
 
@@ -87,6 +94,7 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
     completedRef.current += 1;
     if (results && completedRef.current >= results.length) {
       setIsRolling(false);
+      setIsSkipping(false);
     }
   };
 
@@ -97,9 +105,9 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
         if (e.target === e.currentTarget) close();
       }}
     >
-      <div className="glass-strong w-full max-w-5xl rounded-2xl p-5 sm:p-7 border-cyan-500/40 shadow-[0_0_60px_rgba(34,211,238,0.18)] animate-in zoom-in-95 duration-300 max-h-[94vh] overflow-y-auto">
+      <div className="glass-strong w-full max-w-6xl rounded-2xl p-6 sm:p-10 border-cyan-500/40 shadow-[0_0_60px_rgba(34,211,238,0.18)] animate-in zoom-in-95 duration-300 max-h-[94vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="flex items-start justify-between gap-4 mb-8">
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
               Skrzynka
@@ -120,40 +128,38 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
           </button>
         </div>
 
-        {/* Mode selector */}
-        <div className="mb-5">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+        {/* Mode selector — UI only, not clickable for now */}
+        <div className="mb-6">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
             Tryb otwierania
           </p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-3">
             {MODE_OPTIONS.map((opt) => {
               const selected = mode === opt.id;
               return (
-                <button
+                <div
                   key={opt.id}
-                  onClick={() => setMode(opt.id)}
-                  disabled={isRolling}
-                  className={`relative px-3 py-3 rounded-lg border text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                  aria-disabled="true"
+                  title="Wkrótce"
+                  className={`relative px-3 py-4 rounded-lg border text-sm font-bold text-center select-none cursor-not-allowed opacity-70 ${
                     selected
                       ? "bg-cyan-500/15 border-cyan-400/60 text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,0.18)]"
-                      : "bg-slate-900/50 border-slate-700/40 text-slate-300 hover:bg-slate-800/60 hover:border-cyan-500/30"
+                      : "bg-slate-900/50 border-slate-700/40 text-slate-400"
                   }`}
                 >
                   <span className="block">{opt.label}</span>
-                  {opt.soon && (
-                    <span className="block text-[9px] font-medium uppercase tracking-wider text-slate-500 mt-0.5">
-                      Wkrótce
-                    </span>
-                  )}
-                </button>
+                  <span className="block text-[9px] font-medium uppercase tracking-wider text-slate-500 mt-1">
+                    Wkrótce
+                  </span>
+                </div>
               );
             })}
           </div>
         </div>
 
         {/* Quantity selector */}
-        <div className="mb-6">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+        <div className="mb-8">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
             Ilość
           </p>
           <div className="flex gap-2">
@@ -164,7 +170,7 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
                   key={q}
                   onClick={() => setQuantity(q)}
                   disabled={isRolling}
-                  className={`flex-1 sm:flex-none sm:w-20 px-4 py-2.5 rounded-full border text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`flex-1 sm:flex-none sm:w-24 px-4 py-3 rounded-full border text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                     selected
                       ? "bg-cyan-500/15 border-cyan-400/60 text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,0.18)]"
                       : "bg-slate-900/50 border-slate-700/40 text-slate-300 hover:border-cyan-500/30"
@@ -179,7 +185,7 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
 
         {/* Reels */}
         {results && (
-          <div className="space-y-3 mb-6">
+          <div className="space-y-4 mb-8">
             {results.map((r) => (
               <CaseReelStrip
                 key={r.key}
@@ -194,13 +200,14 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
         )}
 
         {/* Primary CTA / Skip */}
-        <div className="mb-7">
+        <div className="mb-8">
           {isRolling ? (
             <button
               onClick={handleSkip}
-              className="w-full py-3.5 rounded-lg font-bold text-slate-200 border border-cyan-500/30 bg-slate-900/60 hover:border-cyan-400/60 hover:text-cyan-200 hover:bg-slate-900/80 transition-colors"
+              disabled={isSkipping}
+              className="w-full py-4 rounded-lg font-bold text-slate-200 border border-cyan-500/30 bg-slate-900/60 hover:border-cyan-400/60 hover:text-cyan-200 hover:bg-slate-900/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-cyan-500/30 disabled:hover:text-slate-200 disabled:hover:bg-slate-900/60"
             >
-              Pomiń animację
+              {isSkipping ? "Pomijanie..." : "Pomiń animację"}
             </button>
           ) : (
             <button

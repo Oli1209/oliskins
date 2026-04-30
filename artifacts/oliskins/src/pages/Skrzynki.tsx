@@ -68,38 +68,14 @@ export function Skrzynki() {
                   </span>
                 </div>
 
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-slate-950/75 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-4 p-6 pointer-events-none">
-                  <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-cyan-400/80">
-                    Skrzynka
-                  </p>
-                  <h3 className="text-2xl font-black text-slate-100 text-center">
-                    {c.name}
-                  </h3>
-                  <div className="flex items-center gap-4 text-sm text-slate-300">
-                    <span>
-                      <span className="text-slate-500">Cena: </span>
-                      <span className="font-mono text-cyan-300 font-bold">
-                        {formatMoney(c.priceCents)}
-                      </span>
-                    </span>
-                    <span className="text-slate-700">|</span>
-                    <span>
-                      <span className="text-slate-500">Dropy: </span>
-                      <span className="font-bold text-slate-100">
-                        {c.drops.length}
-                      </span>
-                    </span>
+                {/* Hover glow ring */}
+                <div className="pointer-events-none absolute inset-0 rounded-2xl border border-transparent group-hover:border-cyan-400/40 group-focus-visible:border-cyan-400/40 transition-colors duration-200 shadow-[0_0_0_rgba(34,211,238,0)] group-hover:shadow-[0_0_35px_rgba(34,211,238,0.25)] group-focus-visible:shadow-[0_0_35px_rgba(34,211,238,0.25)]" />
+
+                {!canAfford && (
+                  <div className="absolute top-3 right-3 text-[10px] uppercase tracking-wider font-bold text-red-300/90 bg-red-950/60 border border-red-400/30 px-2 py-1 rounded">
+                    Za mało środków
                   </div>
-                  <span className="mt-2 px-8 py-3 rounded-lg bg-cyan-500/20 border border-cyan-400/70 text-cyan-100 font-black uppercase tracking-wider shadow-[0_0_25px_rgba(34,211,238,0.35)]">
-                    Otwórz
-                  </span>
-                  {!canAfford && (
-                    <p className="text-red-400/90 text-xs font-semibold">
-                      Za mało środków
-                    </p>
-                  )}
-                </div>
+                )}
               </GlassCard>
             </Link>
           );
