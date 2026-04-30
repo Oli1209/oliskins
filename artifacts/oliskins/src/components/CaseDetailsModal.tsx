@@ -9,14 +9,16 @@ import { rarityColors } from "../lib/rarity";
 import { CaseReelStrip } from "./CaseReelStrip";
 import { Mode, formatChance, getDropsWithChances } from "../lib/chances";
 
-type Quantity = 1 | 2 | 3 | 4 | 5;
+type Quantity = 1 | 2 | 3;
+
+const MAX_QUANTITY = 3;
 
 type RollResult = {
   key: string;
   winner: InventoryItem;
 };
 
-const QUANTITY_OPTIONS: Quantity[] = [1, 2, 3, 4, 5];
+const QUANTITY_OPTIONS: Quantity[] = [1, 2, 3];
 
 const MODE_OPTIONS: ReadonlyArray<{ id: Mode; label: string }> = [
   { id: "normal", label: "Normal" },
@@ -29,8 +31,6 @@ const TILE_SIZES: Record<number, { mobile: number; desktop: number }> = {
   1: { mobile: 102, desktop: 153 },
   2: { mobile: 88, desktop: 120 },
   3: { mobile: 76, desktop: 100 },
-  4: { mobile: 66, desktop: 84 },
-  5: { mobile: 60, desktop: 72 },
 };
 
 function reelTileSize(count: number, isMobile: boolean): number {
@@ -83,9 +83,10 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
     if (isRolling) return;
     if (!canAfford) return;
 
+    const safeQuantity = Math.min(quantity, MAX_QUANTITY);
     const newResults: RollResult[] = [];
     const stamp = Date.now();
-    for (let i = 0; i < quantity; i++) {
+    for (let i = 0; i < safeQuantity; i++) {
       const r = openCase(caseData.id);
       if (r.ok) {
         newResults.push({
@@ -101,6 +102,18 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
     completedRef.current = 0;
     setResults(newResults);
     setIsRolling(true);
+  };
+
+  const handleQuantityChange = (q: Quantity) => {
+    if (isRolling) return;
+    const next = Math.min(q, MAX_QUANTITY) as Quantity;
+    setQuantity(next);
+    // Clear previous reel lanes so the container immediately reflects the
+    // newly selected count (no stale lanes from the previous roll).
+    if (results) {
+      completedRef.current = 0;
+      setResults(null);
+    }
   };
 
   const onReelResolved = () => {
@@ -229,7 +242,7 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
                 return (
                   <button
                     key={q}
-                    onClick={() => setQuantity(q)}
+                    onClick={() => handleQuantityChange(q)}
                     disabled={isRolling}
                     className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl border text-base font-black transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                       selected
