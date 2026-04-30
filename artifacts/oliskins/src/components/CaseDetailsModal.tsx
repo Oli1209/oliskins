@@ -377,7 +377,11 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
       </div>
 
       {summaryItems && (
-        <OpeningSummary items={summaryItems} onClose={handleSummaryClose} />
+        <OpeningSummary
+          items={summaryItems}
+          onClose={handleSummaryClose}
+          casePriceCents={caseData.priceCents}
+        />
       )}
     </div>
   );

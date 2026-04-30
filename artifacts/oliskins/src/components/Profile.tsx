@@ -11,6 +11,8 @@ import { formatMoney } from "../lib/format";
 export function Profile() {
   const stats = useGameStore((s) => s.stats);
   const xp = useGameStore((s) => s.xp);
+  const confettiEnabled = useGameStore((s) => s.settings.confettiEnabled);
+  const setConfettiEnabled = useGameStore((s) => s.setConfettiEnabled);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -138,6 +140,43 @@ export function Profile() {
               </li>
             ))}
           </ul>
+
+          {/* Settings */}
+          <div className="mt-3 pt-3 border-t border-cyan-500/15">
+            <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-400/80 mb-2">
+              Ustawienia
+            </p>
+            <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-slate-950/50 border border-slate-800/60">
+              <span className="text-[12px] uppercase tracking-wider font-bold text-slate-300">
+                Konfetti
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={confettiEnabled}
+                aria-label="Konfetti"
+                onClick={() => setConfettiEnabled(!confettiEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-colors ${
+                  confettiEnabled
+                    ? "bg-cyan-500/30 border-cyan-400/60 shadow-[0_0_12px_rgba(34,211,238,0.35)]"
+                    : "bg-slate-800/80 border-slate-700/60"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 rounded-full bg-slate-100 shadow transition-transform ${
+                    confettiEnabled ? "translate-x-6" : "translate-x-1"
+                  }`}
+                />
+                <span className="sr-only">
+                  {confettiEnabled ? "Włączone" : "Wyłączone"}
+                </span>
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1.5 px-1">
+              {confettiEnabled ? "Włączone" : "Wyłączone"} — efekt po dużych
+              wygranych.
+            </p>
+          </div>
         </div>
       )}
     </div>

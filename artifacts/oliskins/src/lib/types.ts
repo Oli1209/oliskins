@@ -65,6 +65,10 @@ export type Stats = {
   wonBattles: number;
 };
 
+export type Settings = {
+  confettiEnabled: boolean;
+};
+
 export type OpenFreeCaseResult =
   | { ok: true; item: InventoryItem }
   | { ok: false; reason: "unknown_case" | "locked_level" | "cooldown" };
@@ -76,9 +80,11 @@ export type GameState = {
   stats: Stats;
   lastFreeOpenAt: number | null;
   xp: number;                    // total XP earned (paid openings only)
+  settings: Settings;
 
   addBalanceCents: (delta: number) => void;
   addXp: (delta: number) => void;
+  setConfettiEnabled: (enabled: boolean) => void;
   reset: () => void;
   openCase: (caseId: string, mode?: Mode) => { ok: true; item: InventoryItem } | { ok: false; reason: "insufficient" | "unknown_case" };
   openFreeCase: (caseId: string) => OpenFreeCaseResult;

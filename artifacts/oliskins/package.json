@@ -44,6 +44,7 @@
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "catalog:",
     "@tanstack/react-query": "catalog:",
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
@@ -75,5 +76,8 @@
     "wouter": "^3.3.5",
     "zod": "catalog:",
     "zustand": "^4.5.7"
+  },
+  "dependencies": {
+    "canvas-confetti": "^1.9.4"
   }
 }

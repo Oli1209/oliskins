@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InventoryItem } from "../lib/types";
 import { formatMoney } from "../lib/format";
 import { rarityColors } from "../lib/rarity";
 import { useGameStore } from "../store/useGameStore";
+import { fireGoldConfetti, shouldFireForItems } from "../lib/confetti";
 
 type Props = {
   items: InventoryItem[];
   onClose: () => void;
+  /** Used to qualify confetti against "5x case price". Omit for free cases. */
+  casePriceCents?: number;
 };
 
 function pluralPrzedmiot(n: number): string {
@@ -15,14 +18,27 @@ function pluralPrzedmiot(n: number): string {
   return `${n} przedmiotów`;
 }
 
-export function OpeningSummary({ items, onClose }: Props) {
+export function OpeningSummary({ items, onClose, casePriceCents }: Props) {
   const sellItem = useGameStore((s) => s.sellItem);
   const inventory = useGameStore((s) => s.inventory);
+  const confettiEnabled = useGameStore((s) => s.settings.confettiEnabled);
 
   const [recentIds, setRecentIds] = useState<string[]>(() =>
     items.map((i) => i.instanceId)
   );
   const [busy, setBusy] = useState(false);
+  const confettiFiredRef = useRef(false);
+
+  // Fire confetti once on mount when items qualify and the setting is on.
+  useEffect(() => {
+    if (confettiFiredRef.current) return;
+    if (!confettiEnabled) return;
+    if (!shouldFireForItems(items, casePriceCents)) return;
+    confettiFiredRef.current = true;
+    fireGoldConfetti();
+    // Intentionally only depend on initial items snapshot.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const presentRecentItems = useMemo(() => {
     const set = new Set(recentIds);

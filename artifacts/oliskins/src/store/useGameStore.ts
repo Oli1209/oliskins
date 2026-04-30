@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import {
   GameState,
   InventoryItem,
+  Settings,
   Stats,
   FREE_CASE_COOLDOWN_MS,
   CENTS_PER_XP,
@@ -22,6 +23,10 @@ const DEFAULT_STATS: Stats = {
   wonBattles: 0,
 };
 
+const DEFAULT_SETTINGS: Settings = {
+  confettiEnabled: true,
+};
+
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
@@ -31,6 +36,7 @@ export const useGameStore = create<GameState>()(
       stats: { ...DEFAULT_STATS },
       lastFreeOpenAt: null,
       xp: 0,
+      settings: { ...DEFAULT_SETTINGS },
 
       addBalanceCents: (delta) =>
         set((state) => ({
@@ -44,6 +50,11 @@ export const useGameStore = create<GameState>()(
           return { xp: state.xp + safe };
         }),
 
+      setConfettiEnabled: (enabled) =>
+        set((state) => ({
+          settings: { ...state.settings, confettiEnabled: !!enabled },
+        })),
+
       reset: () =>
         set({
           balanceCents: 1000,
@@ -52,6 +63,7 @@ export const useGameStore = create<GameState>()(
           stats: { ...DEFAULT_STATS },
           lastFreeOpenAt: null,
           xp: 0,
+          settings: { ...DEFAULT_SETTINGS },
         }),
 
       openCase: (caseId, mode = "normal") => {
@@ -194,7 +206,7 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: "oliskins_state_v1",
-      version: 3,
+      version: 4,
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<GameState>;
         if (version < 1) {
@@ -216,6 +228,9 @@ export const useGameStore = create<GameState>()(
             const spent = state.stats?.totalSpentCents ?? 0;
             state.xp = Math.floor(spent / CENTS_PER_XP);
           }
+        }
+        if (version < 4) {
+          state.settings = { ...DEFAULT_SETTINGS, ...(state.settings ?? {}) };
         }
         return state as GameState;
       },
