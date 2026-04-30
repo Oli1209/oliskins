@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import { GameState, InventoryItem } from "../lib/types";
 import { mockCases } from "../data/mockCases";
 import { pickWeighted } from "../lib/random";
-import { getEffectiveDrops, getModePriceMultiplier } from "../lib/chances";
+import { getEffectiveDrops, getTotalCostCents } from "../lib/chances";
 
 export const useGameStore = create<GameState>()(
   persist(
@@ -26,7 +26,7 @@ export const useGameStore = create<GameState>()(
 
         if (!caseData) return { ok: false, reason: "unknown_case" };
 
-        const cost = caseData.priceCents * getModePriceMultiplier(mode);
+        const cost = getTotalCostCents(caseData.priceCents, 1, mode);
         if (state.balanceCents < cost)
           return { ok: false, reason: "insufficient" };
 

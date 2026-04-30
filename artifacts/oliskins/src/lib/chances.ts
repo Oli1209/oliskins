@@ -17,6 +17,23 @@ export function getModePriceMultiplier(mode: Mode): number {
 }
 
 /**
+ * Single source of truth for the total opening cost (in cents).
+ * Used by the modal's "Cena otwarcia", the affordability check,
+ * and the store's per-open balance deduction.
+ *
+ * - Normal: casePriceCents * quantity
+ * - Boost:  casePriceCents * 2 * quantity
+ * - Jester: casePriceCents * quantity
+ */
+export function getTotalCostCents(
+  casePriceCents: number,
+  quantity: number,
+  mode: Mode
+): number {
+  return casePriceCents * getModePriceMultiplier(mode) * quantity;
+}
+
+/**
  * Returns the case's drops with their mode-effective weight and the
  * derived display chance (percent). This is the single source of truth
  * for both the chance UI and the RNG opening logic.

@@ -11,7 +11,7 @@ import {
   Mode,
   formatChance,
   getEffectiveDrops,
-  getModePriceMultiplier,
+  getTotalCostCents,
 } from "../lib/chances";
 
 type Quantity = 1 | 2 | 3;
@@ -57,9 +57,8 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
   const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
   const stackTileSize = reelTileSize(quantity, isMobile);
 
-  const priceMultiplier = getModePriceMultiplier(mode);
-  const unitCost = caseData.priceCents * priceMultiplier;
-  const totalCost = unitCost * quantity;
+  const unitCost = getTotalCostCents(caseData.priceCents, 1, mode);
+  const totalCost = getTotalCostCents(caseData.priceCents, quantity, mode);
   const canAfford = balanceCents >= totalCost;
 
   const effectiveDrops = useMemo(
