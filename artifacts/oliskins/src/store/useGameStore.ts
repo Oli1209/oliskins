@@ -26,7 +26,7 @@ export const useGameStore = create<GameState>()(
 
         if (!caseData) return { ok: false, reason: "unknown_case" };
 
-        const cost = getTotalCostCents(caseData.priceCents, 1, mode);
+        const cost = getTotalCostCents(caseData, 1, mode);
         if (state.balanceCents < cost)
           return { ok: false, reason: "insufficient" };
 

@@ -8,29 +8,30 @@ export type EffectiveDrop = Drop & {
 };
 
 /**
- * Cost multiplier applied to the case base price for the chosen mode.
- * Boost is twice as expensive; Normal and Jester cost the base price.
+ * Per-open cost (in cents) for a case under the chosen mode.
+ *
+ * - Normal: case.priceCents
+ * - Boost:  case.priceCents * 2
+ * - Jester: case.jesterPriceCents (falls back to case.priceCents)
  */
-export function getModePriceMultiplier(mode: Mode): number {
-  if (mode === "boost") return 2;
-  return 1;
+export function getUnitCostCents(caseData: Case, mode: Mode): number {
+  if (mode === "boost") return caseData.priceCents * 2;
+  if (mode === "jester")
+    return caseData.jesterPriceCents ?? caseData.priceCents;
+  return caseData.priceCents;
 }
 
 /**
  * Single source of truth for the total opening cost (in cents).
  * Used by the modal's "Cena otwarcia", the affordability check,
  * and the store's per-open balance deduction.
- *
- * - Normal: casePriceCents * quantity
- * - Boost:  casePriceCents * 2 * quantity
- * - Jester: casePriceCents * quantity
  */
 export function getTotalCostCents(
-  casePriceCents: number,
+  caseData: Case,
   quantity: number,
   mode: Mode
 ): number {
-  return casePriceCents * getModePriceMultiplier(mode) * quantity;
+  return getUnitCostCents(caseData, mode) * quantity;
 }
 
 /**

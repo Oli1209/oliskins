@@ -19,7 +19,8 @@ export const mockCases: Case[] = [
     id: "case-neon",
     name: "Skrzynia Nocnej Burzy",
     description: "Pełna mrocznych i tajemniczych skórek. Idealna na nocne łowy.",
-    priceCents: 150, // #1.50 (Boost = #3.00, Jester = #1.50)
+    priceCents: 150, // #1.50 (Boost = #3.00)
+    jesterPriceCents: 3000, // #30.00
     image: createSvgPlaceholder("#1e1b4b", "#4c1d95", "Nocna Burza"),
     drops: [
       { id: "drop-neon-1", name: "Pistolet | Cień", rarity: "common", valueCents: 20, weight: 100, image: createSvgPlaceholder("#3f3f46", "#18181b", "Cień") },
@@ -34,7 +35,8 @@ export const mockCases: Case[] = [
     id: "case-cyber",
     name: "Skrzynia Cyber-Punk",
     description: "Wysoka technologia i jaskrawe neony.",
-    priceCents: 300, // #3.00 (Boost = #6.00, Jester = #3.00)
+    priceCents: 300, // #3.00 (Boost = #6.00)
+    jesterPriceCents: 6500, // #65.00
     image: createSvgPlaceholder("#083344", "#06b6d4", "Cyber-Punk"),
     drops: [
       { id: "drop-cyber-1", name: "Pistolet | Szum", rarity: "common", valueCents: 40, weight: 100, image: createSvgPlaceholder("#3f3f46", "#18181b", "Szum") },
@@ -49,7 +51,8 @@ export const mockCases: Case[] = [
     id: "case-glass",
     name: "Skrzynia Mrocznego Szkła",
     description: "Kruche, piękne i zabójcze skiny.",
-    priceCents: 500, // #5.00 (Boost = #10.00, Jester = #5.00)
+    priceCents: 500, // #5.00 (Boost = #10.00)
+    jesterPriceCents: 12000, // #120.00
     image: createSvgPlaceholder("#171717", "#52525b", "Mroczne Szkło"),
     drops: [
       { id: "drop-glass-1", name: "Pistolet | Pył", rarity: "common", valueCents: 80, weight: 100, image: createSvgPlaceholder("#3f3f46", "#18181b", "Pył") },

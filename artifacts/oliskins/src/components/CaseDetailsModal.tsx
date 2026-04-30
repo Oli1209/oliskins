@@ -57,8 +57,8 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
   const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
   const stackTileSize = reelTileSize(quantity, isMobile);
 
-  const unitCost = getTotalCostCents(caseData.priceCents, 1, mode);
-  const totalCost = getTotalCostCents(caseData.priceCents, quantity, mode);
+  const unitCost = getTotalCostCents(caseData, 1, mode);
+  const totalCost = getTotalCostCents(caseData, quantity, mode);
   const canAfford = balanceCents >= totalCost;
 
   const effectiveDrops = useMemo(

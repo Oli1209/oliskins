@@ -16,6 +16,8 @@ export type Case = {
   name: string;
   description: string;
   priceCents: number;
+  /** Optional flat Jester price (in cents). Falls back to priceCents. */
+  jesterPriceCents?: number;
   image: string;
   drops: Drop[];
 };
