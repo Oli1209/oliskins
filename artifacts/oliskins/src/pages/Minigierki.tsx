@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Coins, CircleDot } from "lucide-react";
+import { Coins, CircleDot, Dice6, Bomb } from "lucide-react";
 
 const GAMES = [
   {
@@ -20,6 +20,24 @@ const GAMES = [
     color: "from-purple-500/20 to-indigo-500/10 border-purple-500/30",
     iconColor: "text-purple-400",
   },
+  {
+    path: "/minigierki/dice",
+    label: "Dice",
+    icon: Dice6,
+    description: "Wybierz liczbę 1–6 i rzuć kością. Trafienie daje x6 stawki.",
+    odds: "x6",
+    color: "from-cyan-500/20 to-teal-500/10 border-cyan-500/30",
+    iconColor: "text-cyan-400",
+  },
+  {
+    path: "/minigierki/mines",
+    label: "Mines",
+    icon: Bomb,
+    description: "Odkryj bezpieczne pola na siatce 5×5. Cashout kiedy chcesz — ale uważaj na miny!",
+    odds: "∞",
+    color: "from-red-500/20 to-rose-500/10 border-red-500/30",
+    iconColor: "text-red-400",
+  },
 ];
 
 export function Minigierki() {
@@ -39,7 +57,7 @@ export function Minigierki() {
         Wypróbuj szczęście w naszych mini-grach. Pamiętaj: graj odpowiedzialnie.
       </p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 gap-5">
         {GAMES.map((g) => {
           const Icon = g.icon;
           return (

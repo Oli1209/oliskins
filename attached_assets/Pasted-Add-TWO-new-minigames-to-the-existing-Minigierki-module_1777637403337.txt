@@ -1,0 +1,84 @@
+Add TWO new minigames to the existing “Minigierki” module: Dice (1–6) and Mines (5x5 with 3/6/12 mines). Keep the shared bet helpers and minigame stats consistent. Frontend-only, TypeScript, smooth but minimal animations, correctness first.
+
+1) Hub updates
+On /minigierki add two new game cards:
+
+“Dice” (enabled) -> route /minigierki/dice
+“Mines” (enabled) -> route /minigierki/mines
+Keep Coinflip and x20 as-is.
+2) Shared bet panel
+Reuse the existing BetPanel for both new games (same validation, quick buttons, balance display).
+
+3) Dice game (/minigierki/dice)
+Rules:
+
+Player selects a number 1–6 and places a bet.
+Roll result is uniform 1–6.
+If correct: payoutMultiplier = 6.0, else 0.
+Deduct bet once, then add payout if win.
+UI:
+
+Number selector (6 pill buttons).
+Button “Rzuć kością”.
+Simple dice animation: show a dice face that “shuffles” quickly for ~900–1200ms, then stops on final number.
+Show result text: “Wylosowano: X. Wygrałeś/Przegrałeś”.
+Guards:
+
+Disable inputs during roll (isPlaying).
+Require bet valid and a number selected.
+Stats:
+
+Update minigamesPlayed, minigamesWageredCents, minigamesProfitCents (net) per round.
+4) Mines game (/minigierki/mines)
+Rules:
+
+5x5 grid (25 tiles).
+Player chooses mine count preset: 3, 6, or 12.
+Player places a bet and starts a round (“Start”).
+At round start generate mine positions ONCE and keep them fixed until round ends.
+Each safe click increases a cashout multiplier.
+Player can click “Cashout” anytime after at least 1 safe pick.
+If player hits a mine: round ends, bet is lost.
+Multiplier (simple, deterministic, no complex math):
+
+Use a small predefined multiplier table based on safe picks and mine count OR a simple formula.
+Keep it reasonable and increasing; show current multiplier clearly.
+Example simple approach:
+baseIncrement depends on mines:
+3 mines: +0.20 per safe pick
+6 mines: +0.35 per safe pick
+12 mines: +0.60 per safe pick
+multiplier starts at 1.0 and increases by increment per safe pick (cap optional).
+(This is not “casino-accurate” but fine for a sim.)
+Payout:
+
+On cashout: payout = bet * multiplier.
+Deduct bet once at start of round.
+On mine hit: payout 0.
+UI:
+
+Mine count selector: 3 / 6 / 12 (pill buttons).
+BetPanel + “Start”
+Grid of tiles (glass cards). Clicking reveals:
+safe: show a gem/check icon
+mine: show bomb icon + end animation (subtle)
+Show:
+“Bezpieczne trafienia: N”
+“Mnożnik: xM”
+“Potencjalna wypłata: #X.XX”
+Buttons:
+“Cashout” (enabled only if safe picks >= 1 and round active)
+“Nowa runda” after end
+Guards:
+
+While a round is active, prevent changing mine count and bet amount.
+Prevent double cashout.
+Stats:
+
+Each started round counts as one minigame played and wagered += bet.
+Profit = payout - bet (net), or -bet if busted.
+5) Acceptance
+Both games work without negative balance and without double-execution bugs.
+Mines minefield is generated once per round and consistent.
+Stats are updated correctly.
+Animations are smooth but not invasive.

@@ -9,6 +9,8 @@ import { DarmoweSkrzynki } from "./pages/DarmoweSkrzynki";
 import { Minigierki } from "./pages/Minigierki";
 import { Coinflip } from "./pages/Coinflip";
 import { X20 } from "./pages/X20";
+import { Dice } from "./pages/Dice";
+import { Mines } from "./pages/Mines";
 import { CaseDetailsRoute } from "./components/CaseDetailsModal";
 import { FreeCaseRoute } from "./components/FreeCaseModal";
 
@@ -43,6 +45,8 @@ function App() {
             <Route path="/minigierki" element={<Minigierki />}>
               <Route path="coinflip" element={<Coinflip />} />
               <Route path="x20" element={<X20 />} />
+              <Route path="dice" element={<Dice />} />
+              <Route path="mines" element={<Mines />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
