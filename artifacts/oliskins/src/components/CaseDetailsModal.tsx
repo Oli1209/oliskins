@@ -15,16 +15,16 @@ import {
   getTotalCostCents,
 } from "../lib/chances";
 
-type Quantity = 1 | 2 | 3;
+type Quantity = 1 | 2 | 3 | 4 | 5;
 
-const MAX_QUANTITY = 3;
+const MAX_QUANTITY = 5;
 
 type RollResult = {
   key: string;
   winner: InventoryItem;
 };
 
-const QUANTITY_OPTIONS: Quantity[] = [1, 2, 3];
+const QUANTITY_OPTIONS: Quantity[] = [1, 2, 3, 4, 5];
 
 const MODE_OPTIONS: ReadonlyArray<{ id: Mode; label: string; hint: string }> = [
   { id: "normal", label: "Normal", hint: "Standardowe szanse" },
@@ -37,6 +37,8 @@ const TILE_SIZES: Record<number, { mobile: number; desktop: number }> = {
   1: { mobile: 102, desktop: 153 },
   2: { mobile: 88, desktop: 120 },
   3: { mobile: 76, desktop: 100 },
+  4: { mobile: 68, desktop: 88 },
+  5: { mobile: 60, desktop: 78 },
 };
 
 function reelTileSize(count: number, isMobile: boolean): number {
