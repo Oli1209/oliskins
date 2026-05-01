@@ -11,6 +11,27 @@ env = { "CI" = "true" }
 [workflows]
 runButton = "Project"
 
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Oliskins"
+
+[[workflows.workflow]]
+name = "Oliskins"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=19120 BASE_PATH=/ pnpm --filter @workspace/oliskins dev"
+waitForPort = 19120
+
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true

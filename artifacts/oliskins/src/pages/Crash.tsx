@@ -8,19 +8,20 @@ import { formatMoney } from "../lib/format";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const TICK_MS = 50;
+const TICK_MS = 100;
 
-// Distribution: exponential-like, mostly 1.5–1.9, occasionally 3–10x
+// Distribution: median ~x1.88, mostly 1.60–2.20, rare 3–10x
+// P(crash < 1.60) ≈ 17%  |  P(crash > 3.0) ≈ 6.5%
 function generateCrashAt(): number {
   const u = Math.random();
-  const raw = 1 + (-Math.log(Math.max(u, 0.001))) * 1.2;
-  return Math.max(1.01, Math.min(10, raw));
+  const raw = 1.5 + (-Math.log(Math.max(u, 0.001))) * 0.55;
+  return Math.max(1.10, Math.min(10, raw));
 }
 
-// Mild exponential curve: 1.0 at t=0, ~2.0 at t≈2.5s, ~4.0 at t≈5s
+// Slow curve: x1.0 at t=0, ~x2.0 at t≈8s, ~x4.0 at t≈18s
 function computeMultiplier(elapsedMs: number): number {
   const t = elapsedMs / 1000;
-  return 1.0 + t * 0.4 + t * t * 0.04;
+  return 1.0 + t * 0.10 + t * t * 0.005;
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useGameStore } from "../store/useGameStore";
@@ -167,15 +167,13 @@ function WheelSVG({ slots, rotation, transitioning, winningIdx, winnerColor }: W
 
 type Phase = "idle" | "spinning" | "result";
 
-const MAX_BETS = 2;
-
 export function X20() {
   const balanceCents = useGameStore((s) => s.balanceCents);
   const addBalanceCents = useGameStore((s) => s.addBalanceCents);
   const updateMinigameStats = useGameStore((s) => s.updateMinigameStats);
 
   const [betInput, setBetInput] = useState("");
-  const [selectedColors, setSelectedColors] = useState<Set<SlotColor>>(new Set(["black"]));
+  const [selectedColor, setSelectedColor] = useState<SlotColor | null>(null);
   const [betError, setBetError] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<{
@@ -197,28 +195,16 @@ export function X20() {
 
   const isPlaying = phase === "spinning";
 
-  // Toggle color selection
-  const toggleColor = (color: SlotColor) => {
+  // Single color selection
+  const selectColor = (color: SlotColor) => {
     if (isPlaying) return;
     setBetError(null);
-    setSelectedColors((prev) => {
-      const next = new Set(prev);
-      if (next.has(color)) {
-        next.delete(color);
-      } else {
-        if (next.size >= MAX_BETS) {
-          setBetError("Możesz wybrać maksymalnie 2 kolory.");
-          return prev;
-        }
-        next.add(color);
-      }
-      return next;
-    });
+    setSelectedColor((prev) => (prev === color ? null : color));
   };
 
   const handleSpin = () => {
     if (phaseRef.current !== "idle") return;
-    if (selectedColors.size === 0) { setBetError("Wybierz co najmniej 1 kolor."); return; }
+    if (!selectedColor) { setBetError("Wybierz kolor przed zakręceniem."); return; }
 
     const betCents = parseBetToCents(betInput);
     if (!betCents) { setBetError("Podaj prawidłową stawkę (min. #0.01)."); return; }
@@ -236,7 +222,7 @@ export function X20() {
     const newSlots = buildShuffledWheel();
     const winIdx = pickWinnerIndex();
     const landedColor = newSlots[winIdx];
-    const won = selectedColors.has(landedColor);
+    const won = landedColor === selectedColor;
     const def = defFor(landedColor);
     const { payoutCents, profitCents } = resolveBet(betCents, won ? def.multiplier : 0);
 
@@ -288,8 +274,6 @@ export function X20() {
     setWinningIdx(null);
   };
 
-  const betCount = selectedColors.size;
-
   return (
     <div className="container mx-auto px-4 py-8 max-w-xl">
       <div className="flex items-center gap-3 mb-6">
@@ -314,28 +298,19 @@ export function X20() {
           winnerColor={winnerColor}
         />
 
-        {/* Color selector with 0/2 counter */}
+        {/* Color selector – single pick */}
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Wybierz kolor(y)
-            </p>
-            <span className={`text-xs font-black px-2 py-0.5 rounded-full border ${
-              betCount >= MAX_BETS
-                ? "border-yellow-400/60 bg-yellow-400/10 text-yellow-300"
-                : "border-slate-700/40 bg-slate-900/50 text-slate-400"
-            }`}>
-              {betCount}/{MAX_BETS}
-            </span>
-          </div>
+          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+            Wybierz kolor
+          </p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {SLOT_DEFS.map((def) => {
-              const selected = selectedColors.has(def.color);
+              const selected = selectedColor === def.color;
               return (
                 <button
                   key={def.color}
                   type="button"
-                  onClick={() => toggleColor(def.color)}
+                  onClick={() => selectColor(def.color)}
                   disabled={isPlaying}
                   aria-pressed={selected}
                   className={`py-2.5 px-3 rounded-xl border text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex flex-col items-center gap-0.5 ${
@@ -379,7 +354,7 @@ export function X20() {
           <button
             type="button"
             onClick={handleSpin}
-            disabled={isPlaying}
+            disabled={isPlaying || !selectedColor}
             className="neon-button w-full h-14 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isPlaying ? "Obraca się..." : "Zakręć"}
