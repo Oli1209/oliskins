@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { X, Plus, Trash2, ChevronRight, ChevronLeft } from "lucide-react";
+import { X, Plus, Trash2, ChevronRight, ChevronLeft, Users } from "lucide-react";
 import { mockCases } from "../data/mockCases";
-import type { BattleMode, SelectedCase } from "../lib/battleTypes";
+import type { BattleFormat, BattleMode, SelectedCase } from "../lib/battleTypes";
 import { MODE_LABELS, MODE_DESCRIPTIONS } from "../lib/battleTypes";
 import type { Mode } from "../lib/chances";
 import { getUnitCostCents } from "../lib/chances";
@@ -29,11 +29,6 @@ function CaseSelector({ onAdd, onClose }: CaseSelectorProps) {
   const [openMode, setOpenMode] = useState<Mode>("normal");
 
   const pickedCase = mockCases.find((c) => c.id === pickedId);
-
-  const handleAdd = () => {
-    if (!pickedId) return;
-    onAdd({ caseId: pickedId, qty, openMode });
-  };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
@@ -67,12 +62,7 @@ function CaseSelector({ onAdd, onClose }: CaseSelectorProps) {
                 <button
                   key={c.id}
                   type="button"
-                  onClick={() => {
-                    setPickedId(c.id);
-                    setQty(1);
-                    setOpenMode("normal");
-                    setStep("config");
-                  }}
+                  onClick={() => { setPickedId(c.id); setQty(1); setOpenMode("normal"); setStep("config"); }}
                   className="flex items-center gap-3 rounded-xl border border-slate-700/40 bg-slate-900/50 px-3 py-2.5 hover:border-cyan-500/40 hover:bg-slate-800/60 transition-all text-left"
                 >
                   <img src={c.image} alt="" className="w-10 h-8 rounded object-cover" />
@@ -145,7 +135,7 @@ function CaseSelector({ onAdd, onClose }: CaseSelectorProps) {
 
               <button
                 type="button"
-                onClick={handleAdd}
+                onClick={() => { if (pickedId) onAdd({ caseId: pickedId, qty, openMode }); }}
                 className="neon-button w-full h-11"
               >
                 Dodaj do bitwy
@@ -157,6 +147,17 @@ function CaseSelector({ onAdd, onClose }: CaseSelectorProps) {
     </div>
   );
 }
+
+// ─── Player-count / format options ───────────────────────────────────────────
+
+type FormatOption = { label: string; sub: string; maxPlayers: number; format: BattleFormat };
+
+const FORMAT_OPTIONS: FormatOption[] = [
+  { label: "2", sub: "graczy", maxPlayers: 2, format: "ffa" },
+  { label: "3", sub: "graczy", maxPlayers: 3, format: "ffa" },
+  { label: "4", sub: "graczy", maxPlayers: 4, format: "ffa" },
+  { label: "2v2", sub: "drużyny", maxPlayers: 4, format: "teams" },
+];
 
 // ─── Main Setup Modal ─────────────────────────────────────────────────────────
 
@@ -175,34 +176,27 @@ const ALL_MODES: BattleMode[] = [
 ];
 
 export function BattleSetupModal({ onClose, onConfirm, balanceCents }: Props) {
-  const [maxPlayers, setMaxPlayers] = useState<2 | 3 | 4>(2);
+  const [selectedOption, setSelectedOption] = useState<FormatOption>(FORMAT_OPTIONS[0]);
   const [mode, setMode] = useState<BattleMode>("standard");
   const [cases, setCases] = useState<SelectedCase[]>([]);
   const [showCaseSelector, setShowCaseSelector] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const totalCost = computeTotalCostCents(cases);
-  const yourShare = Math.floor(totalCost / maxPlayers);
-
-  const handleAddCase = (sc: SelectedCase) => {
-    setCases((prev) => [...prev, sc]);
-    setShowCaseSelector(false);
-  };
-
-  const handleRemoveCase = (idx: number) => {
-    setCases((prev) => prev.filter((_, i) => i !== idx));
-  };
+  const shareCents = Math.ceil(totalCost / selectedOption.maxPlayers);
 
   const handleConfirm = () => {
-    if (cases.length === 0) {
-      setError("Dodaj co najmniej jedną skrzynkę.");
+    if (cases.length === 0) { setError("Dodaj co najmniej jedną skrzynkę."); return; }
+    if (shareCents > balanceCents) {
+      setError(`Niewystarczający balans. Potrzebujesz ${formatMoney(shareCents)}.`);
       return;
     }
-    if (yourShare > balanceCents) {
-      setError(`Niewystarczający balans. Potrzebujesz ${formatMoney(yourShare)}.`);
-      return;
-    }
-    onConfirm({ mode, maxPlayers, cases });
+    onConfirm({
+      mode,
+      maxPlayers: selectedOption.maxPlayers,
+      battleFormat: selectedOption.format,
+      cases,
+    });
   };
 
   return (
@@ -221,26 +215,35 @@ export function BattleSetupModal({ onClose, onConfirm, balanceCents }: Props) {
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
-            {/* Max players */}
+            {/* Format / player count */}
             <div>
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Liczba graczy
+                Format
               </p>
-              <div className="flex gap-2">
-                {([2, 3, 4] as const).map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setMaxPlayers(n)}
-                    className={`flex-1 py-3 rounded-xl border text-lg font-black transition-all ${
-                      maxPlayers === n
-                        ? "border-cyan-500/60 bg-cyan-500/15 text-cyan-300"
-                        : "border-slate-700/40 bg-slate-900/50 text-slate-400 hover:border-slate-500/60"
-                    }`}
-                  >
-                    {n}v{n}
-                  </button>
-                ))}
+              <div className="grid grid-cols-4 gap-2">
+                {FORMAT_OPTIONS.map((opt) => {
+                  const active = selectedOption === opt;
+                  return (
+                    <button
+                      key={opt.label + opt.format}
+                      type="button"
+                      onClick={() => setSelectedOption(opt)}
+                      className={`flex flex-col items-center py-3 rounded-xl border text-center transition-all ${
+                        active
+                          ? opt.format === "teams"
+                            ? "border-purple-500/60 bg-purple-500/15 text-purple-300"
+                            : "border-cyan-500/60 bg-cyan-500/15 text-cyan-300"
+                          : "border-slate-700/40 bg-slate-900/50 text-slate-400 hover:border-slate-500/60"
+                      }`}
+                    >
+                      <span className="text-lg font-black leading-none">{opt.label}</span>
+                      <span className="text-[10px] mt-0.5 opacity-70">{opt.sub}</span>
+                      {opt.format === "teams" && (
+                        <Users className="w-3 h-3 mt-1 opacity-70" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -294,7 +297,7 @@ export function BattleSetupModal({ onClose, onConfirm, balanceCents }: Props) {
                       </div>
                       <button
                         type="button"
-                        onClick={() => handleRemoveCase(idx)}
+                        onClick={() => setCases((prev) => prev.filter((_, i) => i !== idx))}
                         className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -317,12 +320,12 @@ export function BattleSetupModal({ onClose, onConfirm, balanceCents }: Props) {
             {cases.length > 0 && (
               <div className="rounded-xl border border-slate-700/30 bg-slate-950/50 p-4 space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Łączny koszt bitwy</span>
+                  <span className="text-slate-400">Łączny koszt</span>
                   <span className="font-black text-slate-200 font-mono">{formatMoney(totalCost)}</span>
                 </div>
                 <div className="flex justify-between text-sm border-t border-slate-700/30 pt-2">
-                  <span className="text-slate-400">Twój udział (÷{maxPlayers})</span>
-                  <span className="font-black text-cyan-300 font-mono">{formatMoney(yourShare)}</span>
+                  <span className="text-slate-400">Twoja część (÷{selectedOption.maxPlayers})</span>
+                  <span className="font-black text-cyan-300 font-mono">{formatMoney(shareCents)}</span>
                 </div>
               </div>
             )}
@@ -346,7 +349,7 @@ export function BattleSetupModal({ onClose, onConfirm, balanceCents }: Props) {
 
       {showCaseSelector && (
         <CaseSelector
-          onAdd={handleAddCase}
+          onAdd={(sc) => { setCases((prev) => [...prev, sc]); setShowCaseSelector(false); }}
           onClose={() => setShowCaseSelector(false)}
         />
       )}

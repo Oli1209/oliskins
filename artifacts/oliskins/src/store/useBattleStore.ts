@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type {
   Battle,
+  BattleFormat,
   BattleMode,
   Participant,
   SelectedCase,
@@ -14,6 +15,7 @@ import { getUnitCostCents } from "../lib/chances";
 export interface BattleSetup {
   mode: BattleMode;
   maxPlayers: number;
+  battleFormat: BattleFormat;
   cases: SelectedCase[];
 }
 
@@ -29,6 +31,7 @@ interface BattleStoreState {
   battles: Battle[];
   createBattle: (setup: BattleSetup, userName?: string) => Battle;
   addBot: (battleId: string) => void;
+  removeBot: (battleId: string, participantId: string) => void;
   deleteBattle: (battleId: string) => void;
   startBattle: (battleId: string) => void;
   completeBattle: (battleId: string) => void;
@@ -43,16 +46,13 @@ export const useBattleStore = create<BattleStoreState>()(
       createBattle: (setup, userName = "Ty") => {
         const id = crypto.randomUUID();
         const now = Date.now();
-        const user: Participant = {
-          id: "user",
-          name: userName,
-          isBot: false,
-        };
+        const user: Participant = { id: "user", name: userName, isBot: false };
         const battle: Battle = {
           id,
           createdAt: now,
           status: "waiting",
           mode: setup.mode,
+          battleFormat: setup.battleFormat,
           maxPlayers: setup.maxPlayers,
           cases: setup.cases,
           participants: [user],
@@ -66,17 +66,29 @@ export const useBattleStore = create<BattleStoreState>()(
           battles: s.battles.map((b) => {
             if (b.id !== battleId || b.status !== "waiting") return b;
             if (b.participants.length >= b.maxPlayers) return b;
-
-            const existingBotCount = b.participants.filter(
-              (p) => p.isBot
-            ).length;
-            const name = BOT_NAMES[existingBotCount] ?? `Bot ${existingBotCount + 1}`;
+            const existingBotCount = b.participants.filter((p) => p.isBot).length;
+            const usedNames = b.participants.filter((p) => p.isBot).map((p) => p.name);
+            const name = BOT_NAMES.find((n) => !usedNames.includes(n)) ?? `Bot ${existingBotCount + 1}`;
             const bot: Participant = {
               id: `bot-${Date.now()}-${existingBotCount}`,
               name,
               isBot: true,
             };
             return { ...b, participants: [...b.participants, bot] };
+          }),
+        }));
+      },
+
+      removeBot: (battleId, participantId) => {
+        set((s) => ({
+          battles: s.battles.map((b) => {
+            if (b.id !== battleId || b.status !== "waiting") return b;
+            return {
+              ...b,
+              participants: b.participants.filter(
+                (p) => !(p.id === participantId && p.isBot)
+              ),
+            };
           }),
         }));
       },
@@ -113,11 +125,10 @@ export const useBattleStore = create<BattleStoreState>()(
             return { ...b, result: { ...b.result, claimed: true } };
           }),
         }));
-        // Update battle stats via game store is done from the component
       },
     }),
     {
-      name: "oliskins_battles_v1",
+      name: "oliskins_battles_v2",
       version: 1,
     }
   )

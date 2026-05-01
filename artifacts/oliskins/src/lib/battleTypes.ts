@@ -8,6 +8,8 @@ export type BattleMode =
   | "terminal"
   | "crazy_terminal";
 
+export type BattleFormat = "ffa" | "teams";
+
 export type BattleStatus = "waiting" | "in_progress" | "completed";
 
 export interface SelectedCase {
@@ -37,7 +39,12 @@ export interface BattleResult {
   dropsByParticipant: Record<string, BattleDrop[]>;
   totalValueByParticipant: Record<string, number>;
   lastGroupDropsByParticipant: Record<string, BattleDrop[]>;
+  /** null for shared mode and teams mode (use teamWinnerId instead) */
   winnerId: string | null;
+  /** Only set when battleFormat = 'teams' */
+  teamWinnerId?: "A" | "B" | null;
+  /** Only set when mode = 'shared': cash per head in cents */
+  sharedPerHeadCents?: number;
   claimed: boolean;
 }
 
@@ -46,6 +53,8 @@ export interface Battle {
   createdAt: number;
   status: BattleStatus;
   mode: BattleMode;
+  /** 'ffa' = free-for-all (default), 'teams' = 2v2 (always maxPlayers=4) */
+  battleFormat?: BattleFormat;
   maxPlayers: number;
   cases: SelectedCase[];
   participants: Participant[];
@@ -63,7 +72,7 @@ export const MODE_LABELS: Record<BattleMode, string> = {
 export const MODE_DESCRIPTIONS: Record<BattleMode, string> = {
   standard: "Wygrywa gracz z najwyższą łączną wartością dropów.",
   underdog: "Wygrywa gracz z najniższą łączną wartością dropów.",
-  shared: "Każdy zatrzymuje własne dropy (brak zwycięzcy).",
+  shared: "Każdy otrzymuje równą część puli w gotówce (bez itemów).",
   terminal: "Wygrywa gracz z najlepszym dropem w ostatniej skrzynce.",
   crazy_terminal: "Wygrywa gracz z najgorszym dropem w ostatniej skrzynce.",
 };

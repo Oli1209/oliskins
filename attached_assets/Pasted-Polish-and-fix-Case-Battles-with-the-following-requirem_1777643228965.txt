@@ -1,0 +1,69 @@
+Polish and fix Case Battles with the following requirements. Keep everything frontend-only and local. Do not regress existing battle logic; apply focused fixes.
+
+=====================================================
+
+Player count options incl. 2v2
+=====================================================
+In battle setup, player options must be:
+2 players
+3 players
+4 players
+2v2 (team mode) (only valid when maxPlayers = 4)
+Add battleFormat: 'ffa' | 'teams' (or similar).
+If user selects “2v2”, force maxPlayers=4 and compute winner by team totals.
+Define teams deterministically:
+Team A: slots 0 and 1 (first two participants)
+Team B: slots 2 and 3 (last two participants)
+(Keep it simple; show team labels in UI.)
+=====================================================
+2) Fix payment: each participant pays their share (user only)
+Bug fix: currently user is charged full total cost.
+
+Compute totalCostCents = sum of selected battle cases (including qty and per-case openMode cost multipliers).
+Compute shareCents = Math.ceil(totalCostCents / maxPlayers) (or floor; choose one and keep consistent).
+At battle start, deduct ONLY shareCents from the real user balance (bots pay nothing; simulator rule).
+Display in setup:
+“Łączny koszt”
+“Twoja część” (shareCents)
+=====================================================
+3) Shared mode payout fix
+Redefine “Shared” as: everyone receives equal cash payout per head.
+
+After generating all drops for all participants:
+potTotal = sum(all drop values)
+perHead = Math.floor(potTotal / maxPlayers)
+Reward behavior:
+The user should receive exactly perHead credited to balance (cash).
+No items are added to inventory in Shared mode (cash-only).
+Result modal should show:
+“Pula: #X.XX”
+“Na głowę: #Y.YY”
+(Keep existing non-shared winner-takes-all behavior unchanged.)
+
+=====================================================
+4) Bot controls in lobby UI (per empty slot)
+In the battle waiting room, each empty slot card should have a button “Dodaj bota” directly on that slot.
+Each bot-filled slot should have a small “Usuń bota” button on that slot (host only).
+=====================================================
+5) Make in-progress battle UI bigger/clearer
+Increase reel/animation areas and spacing so it’s readable.
+Make participant columns wider with clearer totals and item list.
+Use consistent glass panels and clear typography.
+=====================================================
+6) Use real opening reel animations per participant (horizontal)
+Replace any placeholder battle animation with the same style as the normal case opening reel, but:
+
+For each participant column, render a horizontal reel (not vertical).
+During each step/open, all participants roll simultaneously and land on their precomputed deterministic drop for that step.
+Keep it smooth and not overly long (e.g. 2.5–3.5s per step).
+Important:
+
+Battle results MUST be precomputed deterministically at battle start (as already done).
+Reels must use those predetermined winners; no extra RNG during animation.
+=====================================================
+7) Acceptance
+Setup offers 2/3/4 and 2v2.
+Payment is fixed: user pays only their share, not the full total.
+Shared mode pays equal cash per head (no inventory items), calculated from the pot.
+Bot add/remove works per slot.
+In-progress UI is larger and uses horizontal reels that land on the correct predetermined items.

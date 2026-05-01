@@ -31,7 +31,7 @@ export function Bitwy() {
 
   const handleCreate = (setup: BattleSetup) => {
     const totalCost = computeTotalCostCents(setup.cases);
-    const yourShare = Math.floor(totalCost / setup.maxPlayers);
+    const yourShare = Math.ceil(totalCost / setup.maxPlayers);
     addBalanceCents(-yourShare);
 
     const battle = createBattle(setup);
