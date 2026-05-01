@@ -11,6 +11,7 @@ import { Coinflip } from "./pages/Coinflip";
 import { X20 } from "./pages/X20";
 import { Dice } from "./pages/Dice";
 import { Mines } from "./pages/Mines";
+import { Crash } from "./pages/Crash";
 import { CaseDetailsRoute } from "./components/CaseDetailsModal";
 import { FreeCaseRoute } from "./components/FreeCaseModal";
 
@@ -47,6 +48,7 @@ function App() {
               <Route path="x20" element={<X20 />} />
               <Route path="dice" element={<Dice />} />
               <Route path="mines" element={<Mines />} />
+              <Route path="crash" element={<Crash />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

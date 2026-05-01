@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "react-router-dom";
-import { Coins, CircleDot, Dice6, Bomb } from "lucide-react";
+import { Coins, CircleDot, Dice6, Bomb, TrendingUp } from "lucide-react";
 
 const GAMES = [
   {
@@ -37,6 +37,15 @@ const GAMES = [
     odds: "∞",
     color: "from-red-500/20 to-rose-500/10 border-red-500/30",
     iconColor: "text-red-400",
+  },
+  {
+    path: "/minigierki/crash",
+    label: "Crash",
+    icon: TrendingUp,
+    description: "Mnożnik rośnie — cashout zanim rakieta się rozbije. Im dłużej czekasz, tym większe ryzyko.",
+    odds: "x10",
+    color: "from-orange-500/20 to-amber-500/10 border-orange-500/30",
+    iconColor: "text-orange-400",
   },
 ];
 
