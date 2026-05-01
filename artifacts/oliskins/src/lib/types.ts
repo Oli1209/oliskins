@@ -63,6 +63,9 @@ export type Stats = {
   freeCasesOpened: number;
   totalBattles: number;
   wonBattles: number;
+  minigamesPlayed: number;
+  minigamesWageredCents: number;
+  minigamesProfitCents: number;
 };
 
 export type Settings = {
@@ -85,6 +88,11 @@ export type GameState = {
   addBalanceCents: (delta: number) => void;
   addXp: (delta: number) => void;
   setConfettiEnabled: (enabled: boolean) => void;
+  updateMinigameStats: (delta: {
+    played?: number;
+    wageredCents?: number;
+    profitCents?: number;
+  }) => void;
   reset: () => void;
   openCase: (caseId: string, mode?: Mode) => { ok: true; item: InventoryItem } | { ok: false; reason: "insufficient" | "unknown_case" };
   openFreeCase: (caseId: string) => OpenFreeCaseResult;

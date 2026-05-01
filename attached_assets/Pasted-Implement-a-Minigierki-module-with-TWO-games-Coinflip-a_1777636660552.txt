@@ -1,0 +1,84 @@
+Implement a “Minigierki” module with TWO games: Coinflip and x20 (wheel). Frontend-only, TypeScript, keep UI consistent with existing navy/cyan glass theme. Prioritize correctness, clean state, and minimal-but-smooth animations.
+
+0) Shared requirements
+Money uses cents internally (balanceCents). Bet input is # with 2 decimals.
+Never allow negative balance.
+Prevent double-play: each game must have isPlaying guard; disable inputs during a round.
+Add shared helper(s) to avoid duplicated logic:
+parseBetToCents(input: string): number | null
+canPlaceBet(balanceCents, betCents): boolean
+resolveBet({ betCents, payoutMultiplier }): { profitCents, payoutCents }
+Add/update persisted stats:
+minigamesPlayed
+minigamesWageredCents
+minigamesProfitCents (net)
+Update profile UI to show these 3 lines.
+1) Routes + hub
+Add nav link “Minigierki”
+Routes:
+/minigierki hub with two game cards (Coinflip, x20)
+/minigierki/coinflip
+/minigierki/x20
+Each card shows short description + button “Graj”.
+2) Shared bet UI component
+Create a reusable component BetPanel used by both games:
+
+Bet input (string) with label “Stawka”
+Quick buttons: “+1#”, “+5#”, “MAX” (MAX = set bet to full balance)
+Show “Balans: #X.XX”
+Inline validation errors in Polish (no toasts spam)
+3) Coinflip game
+UI:
+
+Choose side: “Orzeł” / “Reszka”
+Button “Graj”
+Minimal coin flip animation: coin icon rotates/flips for ~1200ms then result.
+Logic:
+On play:
+validate bet
+subtract bet from balance immediately
+random result 50/50
+if win: payoutMultiplier = 2.0 else 0
+add payout (bet*2) when win
+update minigame stats:
+played +1
+wagered += bet
+profit += (payout - bet) (net)
+Show result text: “Wygrałeś!” / “Przegrałeś!”
+4) x20 wheel game
+Definition:
+
+22 slots total:
+10 black (x2)
+7 red (x3)
+4 blue (x5)
+1 gold (x20)
+Player selects one color (black/red/blue/gold) and places a bet.
+UI:
+
+Color selection buttons with clear multipliers shown: Czarny x2, Czerwony x3, Niebieski x5, Złoty x20
+A simple horizontal/vertical wheel/strip visualization (does not need perfect roulette):
+Show a “spinner” area and an indicator line
+Button “Zakręć”
+Animation:
+
+Duration ~1800–2400ms with ease-out (slow down near end).
+It can be a “strip reel” similar to your case reel (simpler reuse is fine).
+Must deterministically land on the chosen random slot result for that spin.
+Logic:
+
+On spin:
+validate bet
+subtract bet immediately
+randomly pick one slot according to counts above (uniform over 22 slots)
+determine slot color and multiplier:
+black 2, red 3, blue 5, gold 20
+if player selected that color: payout = bet * multiplier else payout = 0
+add payout if win
+update minigame stats (played/wagered/profit)
+Show result summary: “Wylosowano: {kolor} (xM). {Wygrałeś/Przegrałeś}”
+5) Acceptance
+Both games work end-to-end, no negative balance, no double plays.
+Shared bet component is reused.
+Stats update correctly and appear in Profile.
+Animations are smooth but not invasive.

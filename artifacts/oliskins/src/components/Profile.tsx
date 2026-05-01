@@ -45,6 +45,9 @@ export function Profile() {
     { label: "Darmowe skrzynki", value: String(stats.freeCasesOpened) },
     { label: "Bitwy", value: String(stats.totalBattles) },
     { label: "Wygrane bitwy", value: String(stats.wonBattles) },
+    { label: "Minigierki rozegrane", value: String(stats.minigamesPlayed) },
+    { label: "Minigierki postawiono", value: formatMoney(stats.minigamesWageredCents) },
+    { label: "Minigierki zysk netto", value: (stats.minigamesProfitCents >= 0 ? "+" : "") + formatMoney(stats.minigamesProfitCents) },
   ];
 
   return (

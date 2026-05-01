@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useGameStore } from "../store/useGameStore";
-import { RotateCcw, PackageOpen, Backpack, MousePointerClick, Gift } from "lucide-react";
+import { RotateCcw, PackageOpen, Backpack, MousePointerClick, Gift, Gamepad2 } from "lucide-react";
 import { BalancePill } from "./BalancePill";
 import { Profile } from "./Profile";
 
@@ -19,6 +19,7 @@ export function Header() {
     { path: "/darmowe-skrzynki", label: "Darmowe skrzynki", icon: Gift },
     { path: "/ekwipunek", label: "Ekwipunek", icon: Backpack },
     { path: "/clicker", label: "Clicker", icon: MousePointerClick },
+    { path: "/minigierki", label: "Minigierki", icon: Gamepad2 },
   ];
 
   return (
@@ -30,7 +31,8 @@ export function Header() {
 
         <nav className="hidden md:flex items-center gap-2">
           {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
+            const isActive = location.pathname === item.path ||
+            (item.path !== "/" && location.pathname.startsWith(item.path));
             const Icon = item.icon;
             return (
               <Link
@@ -64,7 +66,8 @@ export function Header() {
       {/* Mobile Nav */}
       <div className="md:hidden border-t border-cyan-500/10 py-2 px-4 flex justify-center gap-2">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path;
+          const isActive = location.pathname === item.path ||
+            (item.path !== "/" && location.pathname.startsWith(item.path));
           const Icon = item.icon;
           return (
             <Link

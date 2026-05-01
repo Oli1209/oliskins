@@ -1,0 +1,76 @@
+import { Link, Outlet, useLocation } from "react-router-dom";
+import { Coins, CircleDot } from "lucide-react";
+
+const GAMES = [
+  {
+    path: "/minigierki/coinflip",
+    label: "Coinflip",
+    icon: Coins,
+    description: "Wybierz stronę monety i postaw stawkę. Szansa 50/50 na podwojenie.",
+    odds: "x2",
+    color: "from-yellow-500/20 to-amber-500/10 border-yellow-500/30",
+    iconColor: "text-yellow-400",
+  },
+  {
+    path: "/minigierki/x20",
+    label: "Koło x20",
+    icon: CircleDot,
+    description: "Obróć kołem z 22 polami. Czarny x2, Czerwony x3, Niebieski x5, Złoty x20.",
+    odds: "x20",
+    color: "from-purple-500/20 to-indigo-500/10 border-purple-500/30",
+    iconColor: "text-purple-400",
+  },
+];
+
+export function Minigierki() {
+  const location = useLocation();
+  const isHub = location.pathname === "/minigierki";
+
+  if (!isHub) {
+    return <Outlet />;
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-10 max-w-3xl">
+      <h1 className="text-3xl sm:text-4xl font-black text-slate-100 mb-2">
+        Minigierki
+      </h1>
+      <p className="text-slate-400 mb-8">
+        Wypróbuj szczęście w naszych mini-grach. Pamiętaj: graj odpowiedzialnie.
+      </p>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+        {GAMES.map((g) => {
+          const Icon = g.icon;
+          return (
+            <div
+              key={g.path}
+              className={`glass-strong rounded-2xl border bg-gradient-to-br p-6 ${g.color} flex flex-col gap-4`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-slate-950/50 border border-white/10 ${g.iconColor}`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-black text-xl text-slate-100">{g.label}</p>
+                  <p className={`text-xs font-bold uppercase tracking-wider ${g.iconColor}`}>
+                    Max {g.odds}
+                  </p>
+                </div>
+              </div>
+              <p className="text-slate-400 text-sm flex-1">{g.description}</p>
+              <Link
+                to={g.path}
+                className="neon-button text-center py-2.5 text-sm"
+              >
+                Graj
+              </Link>
+            </div>
+          );
+        })}
+      </div>
+
+      <Outlet />
+    </div>
+  );
+}

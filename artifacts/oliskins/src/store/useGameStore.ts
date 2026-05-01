@@ -21,6 +21,9 @@ const DEFAULT_STATS: Stats = {
   freeCasesOpened: 0,
   totalBattles: 0,
   wonBattles: 0,
+  minigamesPlayed: 0,
+  minigamesWageredCents: 0,
+  minigamesProfitCents: 0,
 };
 
 const DEFAULT_SETTINGS: Settings = {
@@ -53,6 +56,16 @@ export const useGameStore = create<GameState>()(
       setConfettiEnabled: (enabled) =>
         set((state) => ({
           settings: { ...state.settings, confettiEnabled: !!enabled },
+        })),
+
+      updateMinigameStats: ({ played = 0, wageredCents = 0, profitCents = 0 }) =>
+        set((s) => ({
+          stats: {
+            ...s.stats,
+            minigamesPlayed: s.stats.minigamesPlayed + played,
+            minigamesWageredCents: s.stats.minigamesWageredCents + wageredCents,
+            minigamesProfitCents: s.stats.minigamesProfitCents + profitCents,
+          },
         })),
 
       reset: () =>
@@ -206,7 +219,7 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: "oliskins_state_v1",
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<GameState>;
         if (version < 1) {
@@ -231,6 +244,9 @@ export const useGameStore = create<GameState>()(
         }
         if (version < 4) {
           state.settings = { ...DEFAULT_SETTINGS, ...(state.settings ?? {}) };
+        }
+        if (version < 5) {
+          state.stats = { ...DEFAULT_STATS, ...(state.stats ?? {}) };
         }
         return state as GameState;
       },

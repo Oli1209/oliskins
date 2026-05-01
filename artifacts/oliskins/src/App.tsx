@@ -6,6 +6,9 @@ import { Skrzynki } from "./pages/Skrzynki";
 import { Ekwipunek } from "./pages/Ekwipunek";
 import { Clicker } from "./pages/Clicker";
 import { DarmoweSkrzynki } from "./pages/DarmoweSkrzynki";
+import { Minigierki } from "./pages/Minigierki";
+import { Coinflip } from "./pages/Coinflip";
+import { X20 } from "./pages/X20";
 import { CaseDetailsRoute } from "./components/CaseDetailsModal";
 import { FreeCaseRoute } from "./components/FreeCaseModal";
 
@@ -37,6 +40,10 @@ function App() {
             </Route>
             <Route path="/ekwipunek" element={<Ekwipunek />} />
             <Route path="/clicker" element={<Clicker />} />
+            <Route path="/minigierki" element={<Minigierki />}>
+              <Route path="coinflip" element={<Coinflip />} />
+              <Route path="x20" element={<X20 />} />
+            </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
