@@ -12,6 +12,8 @@ import { X20 } from "./pages/X20";
 import { Dice } from "./pages/Dice";
 import { Mines } from "./pages/Mines";
 import { Crash } from "./pages/Crash";
+import { Bitwy } from "./pages/Bitwy";
+import { BattleRoom } from "./pages/BattleRoom";
 import { CaseDetailsRoute } from "./components/CaseDetailsModal";
 import { FreeCaseRoute } from "./components/FreeCaseModal";
 
@@ -50,6 +52,8 @@ function App() {
               <Route path="mines" element={<Mines />} />
               <Route path="crash" element={<Crash />} />
             </Route>
+            <Route path="/bitwy" element={<Bitwy />} />
+            <Route path="/bitwy/:id" element={<BattleRoom />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

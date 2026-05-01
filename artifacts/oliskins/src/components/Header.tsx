@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useGameStore } from "../store/useGameStore";
-import { RotateCcw, PackageOpen, Backpack, MousePointerClick, Gift, Gamepad2 } from "lucide-react";
+import { RotateCcw, PackageOpen, Backpack, MousePointerClick, Gift, Gamepad2, Swords } from "lucide-react";
 import { BalancePill } from "./BalancePill";
 import { Profile } from "./Profile";
 
@@ -20,6 +20,7 @@ export function Header() {
     { path: "/ekwipunek", label: "Ekwipunek", icon: Backpack },
     { path: "/clicker", label: "Clicker", icon: MousePointerClick },
     { path: "/minigierki", label: "Minigierki", icon: Gamepad2 },
+    { path: "/bitwy", label: "Bitwy", icon: Swords },
   ];
 
   return (

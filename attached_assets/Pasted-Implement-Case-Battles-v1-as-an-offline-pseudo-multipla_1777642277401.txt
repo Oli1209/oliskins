@@ -1,0 +1,143 @@
+Implement Case Battles v1 as an offline “pseudo-multiplayer” experience (no backend, no realtime, no RPC). Must match existing navy/cyan glass UI style and feel smooth.
+
+Key constraints:
+
+Battles are local-only (stored in Zustand + localStorage).
+Lobby UI shows player slots and lets host add bots to fill slots.
+Start only when slots full -> 3..2..1 countdown.
+Payment model (simulator rule): only the real user pays their share; bots pay nothing.
+=====================================================
+
+Navigation + routes
+=====================================================
+Add nav link: “Bitwy”
+Add route: /bitwy
+/bitwy shows:
+
+Hero header “Bitwy na skrzynki”
+Big CTA “Nowa bitwa”
+Section “Aktywne bitwy” listing locally created battles (cards). Each card shows:
+host name “Ty”
+battle mode badge (Standard/Underdog/Shared/Terminal/Crazy Terminal)
+players count X/Y
+selected cases mini list (up to 3 + “+N”)
+total cost (#)
+button “Wejdź” (opens battle room)
+button “Usuń” (delete local battle)
+=====================================================
+2) Battle setup modal/screen
+After clicking “Nowa bitwa”, show a setup view (modal or separate panel on /bitwy):
+
+Select max players: 2 / 3 / 4
+Select battle mode:
+Standard (highest total wins)
+Underdog (lowest total wins)
+Shared (everyone keeps their own drops)
+Terminal (best drop from last case wins)
+Crazy Terminal (worst drop from last case wins)
+Select cases list:
+Button “+ Dodaj skrzynkę” opens CaseSelectorModal.
+CaseSelectorModal flow:
+
+Step 1: choose a case from existing paid cases (exclude free cases).
+Step 2: configure:
+quantity for that case in battle (1–5)
+opening mode: Normal / Boost / Jester
+show computed cost live
+button “Dodaj do bitwy”
+In setup, show:
+
+Total battle cost (#)
+Your share cost (#) = total / maxPlayers (payment rule)
+Button “Utwórz bitwę”
+=====================================================
+3) Local battle data model (persisted)
+Add persisted battle store structures:
+
+battles: Battle[]
+Battle contains:
+id, createdAt, status: 'waiting'|'countdown'|'in_progress'|'completed'
+mode (battle winner mode)
+maxPlayers
+cases: SelectedCase[] (each: caseId, qty, openMode)
+participants: Participant[] (first is real user, others bots)
+result?: BattleResult (all drops for all participants, totals, winner)
+Participant:
+
+id, name, isBot
+=====================================================
+4) Battle room (lobby + countdown + run)
+Route: /bitwy/:id
+
+If status = waiting:
+Show slots (2–4) as cards:
+filled: name + User/Bot icon
+empty: “Oczekiwanie…”
+Host actions:
+“Dodaj bota” fills next empty slot (Bot Alpha/Beta/Gamma/Delta)
+“Usuń bitwę” deletes it and returns to /bitwy
+When slots full -> start countdown 3..2..1 then set status in_progress.
+Payment at start (simulator rule):
+
+Compute yourShare = floor(totalCostCents / maxPlayers) (or exact division; keep cents safe).
+Check balance >= yourShare; if not, block start with message “Niewystarczające środki na udział w bitwie.”
+Deduct only yourShare from user balance once at start.
+=====================================================
+5) Running the battle (deterministic local result)
+When battle starts:
+
+Precompute ALL drops for ALL participants for ALL selected cases and quantities.
+Use a deterministic seeded RNG for this battle run (seed = battleId + createdAt). Implement a simple LCG so the same battle replay is stable.
+For each case open:
+pick drop using the correct openMode logic (Normal/Boost/Jester) already implemented for cases (reuse helper functions).
+Store result in battle.result:
+dropsByParticipant (arrays of Inventory-like items with value/rarity/name/image)
+totalValueByParticipant
+lastCaseBestDropByParticipant and lastCaseWorstDropByParticipant (for Terminal/Crazy Terminal)
+Battle winner selection:
+
+Standard: max total value
+Underdog: min total value
+Shared: no single winner (everyone keeps own drops)
+Terminal: winner = participant with highest value drop in the LAST opened case
+Crazy Terminal: winner = participant with lowest value drop in the LAST opened case
+=====================================================
+6) Battle animation UI
+During in_progress:
+
+Show a grid of participant columns (2/3/4).
+For each participant, show:
+name + running total (#)
+a vertical reel animation area for the current open (smooth, not invasive)
+Open sequence is synchronous:
+iterate through all opens in order; for each “step” animate all participants simultaneously then move to next.
+Keep it simple:
+
+You can reuse your existing reel component but rotate/implement a vertical version.
+Duration per step can be ~2–3s.
+=====================================================
+7) Completion + claiming
+After completed:
+
+Highlight winner column (unless Shared).
+Show a result modal with:
+If Shared: each participant keeps their own drops (for user: show “Twoje dropy”)
+Else: winner takes all drops (show list)
+If the real user is the winner (or Shared where user keeps own):
+Provide buttons:
+“Zachowaj wszystko” (items stay in inventory already OR add them now—choose a consistent approach)
+“Sprzedaj wszystko” (sell only the items won from this battle; do NOT sell entire inventory)
+If user is not winner and not Shared:
+show “Przegrałeś — brak nagrody.”
+Important: battle rewards should NOT duplicate items in inventory. Prefer a “pending reward list” inside battle result and only add/sell upon claim.
+
+=====================================================
+8) Acceptance
+
+Fully local battles: create, lobby with bots, countdown, run, result, claim.
+Uses paid cases only (no free cases).
+Uses per-case openMode (Normal/Boost/Jester).
+Payment rule: only user pays their share; bots pay nothing.
+No negative balance, no duplicated reward items, smooth UI.
+Notes
+If scope is too large, prioritize correctness over perfect vertical reel visuals; keep animations minimal but smooth.
