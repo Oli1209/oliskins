@@ -114,3 +114,29 @@
   @apply text-cyan-400;
   text-shadow: 0 0 10px rgba(34,211,238,0.5);
 }
+
+/* ── Leader ring pulse animations ─────────────────────────────── */
+@keyframes ringPulseCyan {
+  0%, 100% { box-shadow: 0 0 8px rgba(34,211,238,0.4), 0 0 18px rgba(34,211,238,0.2); }
+  50%       { box-shadow: 0 0 22px rgba(34,211,238,0.85), 0 0 44px rgba(34,211,238,0.4); }
+}
+@keyframes ringPulseAmber {
+  0%, 100% { box-shadow: 0 0 8px rgba(251,191,36,0.4), 0 0 18px rgba(251,191,36,0.2); }
+  50%       { box-shadow: 0 0 22px rgba(251,191,36,0.85), 0 0 44px rgba(251,191,36,0.4); }
+}
+@keyframes ringPulseEmerald {
+  0%, 100% { box-shadow: 0 0 8px rgba(52,211,153,0.4), 0 0 18px rgba(52,211,153,0.2); }
+  50%       { box-shadow: 0 0 22px rgba(52,211,153,0.85), 0 0 44px rgba(52,211,153,0.4); }
+}
+.ring-leader-cyan    { animation: ringPulseCyan    2s ease-in-out infinite; }
+.ring-leader-amber   { animation: ringPulseAmber   2s ease-in-out infinite; }
+.ring-leader-emerald { animation: ringPulseEmerald 2s ease-in-out infinite; }
+
+/* ── Countdown pop animation ──────────────────────────────────── */
+@keyframes countdownPop {
+  0%   { transform: scale(1.6); opacity: 0; }
+  20%  { transform: scale(1);   opacity: 1; }
+  75%  { transform: scale(1);   opacity: 1; }
+  100% { transform: scale(0.7); opacity: 0; }
+}
+.countdown-pop { animation: countdownPop 1s ease-out forwards; }

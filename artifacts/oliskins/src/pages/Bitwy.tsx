@@ -354,7 +354,12 @@ export function Bitwy() {
             Aktywne bitwy ({battles.length})
           </h2>
 
-          {battles.length === 0 ? (
+          {(() => {
+            // Auto-hide completed + claimed battles
+            const visible = [...battles].filter(
+              (b) => !(b.status === "completed" && b.result?.claimed === true)
+            ).reverse();
+            return visible.length === 0 ? (
             <div className="glass-strong rounded-2xl border border-cyan-500/10 p-10 text-center">
               <Swords className="w-10 h-10 text-slate-700 mx-auto mb-3" />
               <p className="text-slate-500 text-sm">Brak aktywnych bitw.</p>
@@ -362,7 +367,7 @@ export function Bitwy() {
             </div>
           ) : (
             <div className="space-y-2">
-              {[...battles].reverse().map((battle) => {
+              {visible.map((battle) => {
                 const totalCostBattle = computeTotalCostCents(battle.cases);
                 const Icon = MODE_ICONS[battle.mode];
 
@@ -439,7 +444,8 @@ export function Bitwy() {
                 );
               })}
             </div>
-          )}
+          );
+        })()}
         </div>
       </div>
 

@@ -1,0 +1,47 @@
+Apply battle polish fixes and small logic corrections. Keep the current battle generation logic intact; focus on leader display logic and UX rules.
+
+Terminal/Crazy Terminal leader logic (and rings)
+For Terminal and Crazy Terminal modes, DO NOT compute leader rings using total sum (like Standard/Underdog).
+
+Terminal winner/leader must be based ONLY on the LAST step (last opened case in the sequence):
+
+Terminal: highest value drop on the last step wins.
+Crazy Terminal: lowest value drop on the last step wins.
+During the battle (before reaching the last step), show NO leader rings for Terminal/Crazy Terminal (or show a neutral label “Decyduje ostatnia skrzynka”).
+
+Ring visuals
+Improve leader ring styling:
+
+Standard: green/cyan glow ring with smooth pulse animation.
+Underdog: amber/yellow glow ring with smooth pulse animation.
+Shared: no rings.
+If tie: multiple players can have rings.
+
+Battle reel display simplification
+In the battle rolling animation area, show ONLY the large skin tile/image (no name, no price) to reduce chaos.
+
+Keep the reel visually larger and cleaner.
+
+Auto-start + countdown UX
+Automatically start countdown when all slots are filled.
+
+Countdown must be centered, much larger, and animated (3→2→1).
+
+Prevent users from triggering start manually if auto-start is enabled.
+
+End-of-battle effects
+Winner: nicer in-page end animation (trophy + subtle confetti).
+
+Losers: red X overlay (subtle).
+
+Auto-remove completed battles from “active battles”
+Once a battle is completed and the result is claimed (or acknowledged), remove it from the active battles list automatically.
+
+Prevent leaving the battle
+Disable/Hide the “exit/back” action while in the battle room (at least during countdown and in_progress; optionally also during completed until acknowledged).
+Acceptance:
+
+Terminal/Crazy Terminal rings do not behave like Standard/Underdog.
+Countdown is big, centered, animated, and auto-start triggers on full slots.
+Reels are cleaner (no name/price).
+Completed battles disappear from active list.
