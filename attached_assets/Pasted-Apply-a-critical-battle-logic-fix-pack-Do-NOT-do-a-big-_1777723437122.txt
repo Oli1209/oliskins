@@ -1,0 +1,46 @@
+Apply a critical battle logic fix pack. Do NOT do a big UI redesign in this prompt; focus on correctness and progression.
+
+1) Payment rule fix (as requested)
+Battle has totalCostCents (sum of selected cases with qty and mode multipliers).
+At battle start, the real user must pay the FULL totalCostCents (not a share).
+Bots have infinite balance (no deductions).
+Block battle start if user balance < totalCostCents with message “Niewystarczające środki na bitwę.”
+2) Ensure Boost/Jester modes work in battles
+Battle drop generation must reuse the same mode logic as normal case opening:
+Normal/Boost/Jester must be applied per selected case.
+Use a single shared helper (e.g. getEffectiveDrops(case, mode) + weighted pick) for BOTH normal openings and battle generation.
+Ensure the battle precomputed winners correspond to the same effective drops used in animations.
+3) Fix battle sequencing (critical bug)
+Current issues: battle doesn’t end for 1 case, or stops after first case with “Przygotowanie…”.
+Fix the step runner so it ALWAYS:
+
+iterates through ALL planned opens: each selected case with its quantity (flatten into a steps array)
+for each step: animate -> then advance index
+after last step: mark battle as completed and show results modal.
+Implementation guidance:
+
+Precompute a flattened steps[] array at start: each step contains { caseId, mode, roundIndex }.
+Maintain a single currentStepIndex state.
+Use ONE scheduling mechanism to advance (either await a promise delay per step, OR setTimeout, but not both).
+Ensure cleanup on unmount (clear timeouts/intervals).
+4) Tie handling (RNG tiebreak)
+For winner-based modes (Standard, Underdog, Terminal, Crazy Terminal):
+
+If there is a tie (same best score), pick the winner randomly among tied participants using the battle’s seeded RNG (deterministic for that battle).
+5) Shared mode payout rule (as requested)
+Implement Shared as equal cash payout per head:
+
+potTotalCents = sum(valueCents of all drops of all participants)
+perHeadCents = Math.floor(potTotalCents / maxPlayers)
+User receives perHeadCents added to balance when claiming (or auto-claim).
+No winner highlight ring in Shared mode.
+No items are added to inventory in Shared mode (cash-only).
+6) End-of-battle state correctness
+Ensure results/claim can happen exactly once (no double-claim).
+After claim or close, return to battle menu/lobby cleanly.
+Acceptance
+User pays full battle cost at start; bots pay nothing.
+Battles always progress through all steps and complete.
+Boost/Jester affect battle results correctly.
+Ties are resolved via seeded RNG.
+Shared gives equal cash payout and no winner ring.

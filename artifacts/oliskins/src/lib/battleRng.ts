@@ -1,6 +1,6 @@
 import type { Case } from "./types";
 import { getEffectiveDrops } from "./chances";
-import type { Battle, BattleDrop, BattleResult } from "./battleTypes";
+import type { Battle, BattleDrop, BattleResult, SelectedCase } from "./battleTypes";
 
 // ─── LCG seeded RNG ───────────────────────────────────────────────────────────
 
@@ -38,17 +38,45 @@ function pickWeightedSeeded<T extends { weight: number }>(
   return items[items.length - 1];
 }
 
-// ─── Step → case lookup ───────────────────────────────────────────────────────
+/** Seeded tiebreak: among tied participants, pick one via RNG. */
+function pickBestWithTiebreak<T>(
+  items: T[],
+  scorer: (item: T) => number,
+  prefer: "max" | "min",
+  rng: SeededRNG
+): T {
+  const scored = items.map((item) => ({ item, score: scorer(item) }));
+  const best =
+    prefer === "max"
+      ? Math.max(...scored.map((s) => s.score))
+      : Math.min(...scored.map((s) => s.score));
+  const tied = scored.filter((s) => s.score === best).map((s) => s.item);
+  if (tied.length === 1) return tied[0];
+  return tied[Math.floor(rng.next() * tied.length)];
+}
 
-export function buildStepCaseList(battle: Battle, allCases: Case[]): Case[] {
-  const list: Case[] = [];
+// ─── Step info (carries openMode for correct filler drops in animation) ───────
+
+export interface BattleStep {
+  caseData: Case;
+  sc: SelectedCase;
+}
+
+export function buildStepList(battle: Battle, allCases: Case[]): BattleStep[] {
+  const list: BattleStep[] = [];
   for (const sc of battle.cases) {
     const caseData = allCases.find((c) => c.id === sc.caseId);
+    if (!caseData) continue;
     for (let q = 0; q < sc.qty; q++) {
-      if (caseData) list.push(caseData);
+      list.push({ caseData, sc });
     }
   }
   return list;
+}
+
+/** @deprecated Use buildStepList instead */
+export function buildStepCaseList(battle: Battle, allCases: Case[]): Case[] {
+  return buildStepList(battle, allCases).map((s) => s.caseData);
 }
 
 // ─── Precompute all drops deterministically ───────────────────────────────────
@@ -58,6 +86,8 @@ export function precomputeBattleResult(
   allCases: Case[]
 ): BattleResult {
   const rng = new SeededRNG(seedFromString(battle.id + battle.createdAt));
+  // Keep a separate RNG for tiebreaks so drop order doesn't affect it
+  const tieRng = new SeededRNG(seedFromString("tie" + battle.id + battle.createdAt));
   const isTeams = battle.battleFormat === "teams";
 
   const dropsByParticipant: Record<string, BattleDrop[]> = {};
@@ -104,37 +134,42 @@ export function precomputeBattleResult(
     lastGroupDropsByParticipant[p.id] = drops.filter((d) => d.groupIndex === lastGroupIndex);
   }
 
-  // ── Shared: cash-only, equal split ──
+  // ── Shared: cash-only equal split ─────────────────────────────────────────
   if (battle.mode === "shared") {
     const potTotal = Object.values(totalValueByParticipant).reduce((s, v) => s + v, 0);
-    const perHead = Math.floor(potTotal / battle.maxPlayers);
     return {
       dropsByParticipant,
       totalValueByParticipant,
       lastGroupDropsByParticipant,
       winnerId: null,
-      sharedPerHeadCents: perHead,
+      sharedPerHeadCents: Math.floor(potTotal / battle.maxPlayers),
       claimed: false,
     };
   }
 
-  // ── Teams 2v2: compare team totals ──
+  // ── Teams 2v2 ─────────────────────────────────────────────────────────────
   if (isTeams && battle.participants.length === 4) {
     const pts = battle.participants;
     const teamATotal = totalValueByParticipant[pts[0].id] + totalValueByParticipant[pts[1].id];
     const teamBTotal = totalValueByParticipant[pts[2].id] + totalValueByParticipant[pts[3].id];
+
     let teamWinnerId: "A" | "B" | null = null;
 
-    if (battle.mode === "standard") teamWinnerId = teamATotal >= teamBTotal ? "A" : "B";
-    else if (battle.mode === "underdog") teamWinnerId = teamATotal <= teamBTotal ? "A" : "B";
-    else if (battle.mode === "terminal") {
+    if (battle.mode === "standard") {
+      if (teamATotal !== teamBTotal) teamWinnerId = teamATotal > teamBTotal ? "A" : "B";
+      else teamWinnerId = tieRng.next() < 0.5 ? "A" : "B";
+    } else if (battle.mode === "underdog") {
+      if (teamATotal !== teamBTotal) teamWinnerId = teamATotal < teamBTotal ? "A" : "B";
+      else teamWinnerId = tieRng.next() < 0.5 ? "A" : "B";
+    } else if (battle.mode === "terminal") {
       const aMax = Math.max(
         ...[...lastGroupDropsByParticipant[pts[0].id], ...lastGroupDropsByParticipant[pts[1].id]].map((d) => d.valueCents), 0
       );
       const bMax = Math.max(
         ...[...lastGroupDropsByParticipant[pts[2].id], ...lastGroupDropsByParticipant[pts[3].id]].map((d) => d.valueCents), 0
       );
-      teamWinnerId = aMax >= bMax ? "A" : "B";
+      if (aMax !== bMax) teamWinnerId = aMax > bMax ? "A" : "B";
+      else teamWinnerId = tieRng.next() < 0.5 ? "A" : "B";
     } else if (battle.mode === "crazy_terminal") {
       const aMin = Math.min(
         ...[...lastGroupDropsByParticipant[pts[0].id], ...lastGroupDropsByParticipant[pts[1].id]].map((d) => d.valueCents), Infinity
@@ -142,7 +177,8 @@ export function precomputeBattleResult(
       const bMin = Math.min(
         ...[...lastGroupDropsByParticipant[pts[2].id], ...lastGroupDropsByParticipant[pts[3].id]].map((d) => d.valueCents), Infinity
       );
-      teamWinnerId = aMin <= bMin ? "A" : "B";
+      if (aMin !== bMin) teamWinnerId = aMin < bMin ? "A" : "B";
+      else teamWinnerId = tieRng.next() < 0.5 ? "A" : "B";
     }
 
     return {
@@ -155,26 +191,29 @@ export function precomputeBattleResult(
     };
   }
 
-  // ── FFA: standard winner logic ──
+  // ── FFA with seeded tiebreak ───────────────────────────────────────────────
   let winnerId: string | null = null;
   const pts = battle.participants;
+
   if (pts.length > 0) {
     if (battle.mode === "standard") {
-      winnerId = pts.reduce((b, p) => totalValueByParticipant[p.id] > totalValueByParticipant[b.id] ? p : b).id;
+      winnerId = pickBestWithTiebreak(pts, (p) => totalValueByParticipant[p.id], "max", tieRng).id;
     } else if (battle.mode === "underdog") {
-      winnerId = pts.reduce((b, p) => totalValueByParticipant[p.id] < totalValueByParticipant[b.id] ? p : b).id;
+      winnerId = pickBestWithTiebreak(pts, (p) => totalValueByParticipant[p.id], "min", tieRng).id;
     } else if (battle.mode === "terminal") {
-      winnerId = pts.reduce((b, p) => {
-        const pv = Math.max(...(lastGroupDropsByParticipant[p.id] ?? []).map((d) => d.valueCents), 0);
-        const bv = Math.max(...(lastGroupDropsByParticipant[b.id] ?? []).map((d) => d.valueCents), 0);
-        return pv > bv ? p : b;
-      }).id;
+      winnerId = pickBestWithTiebreak(
+        pts,
+        (p) => Math.max(...(lastGroupDropsByParticipant[p.id] ?? []).map((d) => d.valueCents), 0),
+        "max",
+        tieRng
+      ).id;
     } else if (battle.mode === "crazy_terminal") {
-      winnerId = pts.reduce((b, p) => {
-        const pv = Math.min(...(lastGroupDropsByParticipant[p.id] ?? []).map((d) => d.valueCents), Infinity);
-        const bv = Math.min(...(lastGroupDropsByParticipant[b.id] ?? []).map((d) => d.valueCents), Infinity);
-        return pv < bv ? p : b;
-      }).id;
+      winnerId = pickBestWithTiebreak(
+        pts,
+        (p) => Math.min(...(lastGroupDropsByParticipant[p.id] ?? []).map((d) => d.valueCents), Infinity),
+        "min",
+        tieRng
+      ).id;
     }
   }
 
@@ -195,10 +234,8 @@ export function computePendingRewards(battle: Battle): BattleDrop[] {
   const userId = battle.participants[0]?.id;
   if (!userId) return [];
 
-  // Shared = cash only, no items
   if (battle.mode === "shared") return [];
 
-  // Teams mode: winning team gets all items
   if (battle.battleFormat === "teams" && result.teamWinnerId != null) {
     const pts = battle.participants;
     const userIdx = pts.findIndex((p) => p.id === userId);
@@ -209,7 +246,6 @@ export function computePendingRewards(battle: Battle): BattleDrop[] {
     return [];
   }
 
-  // FFA: single winner takes all
   if (result.winnerId === userId) {
     return Object.values(result.dropsByParticipant).flat();
   }

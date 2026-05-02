@@ -30,9 +30,9 @@ export function Bitwy() {
   const [showSetup, setShowSetup] = useState(false);
 
   const handleCreate = (setup: BattleSetup) => {
+    // User pays the FULL battle cost; bots pay nothing
     const totalCost = computeTotalCostCents(setup.cases);
-    const yourShare = Math.ceil(totalCost / setup.maxPlayers);
-    addBalanceCents(-yourShare);
+    addBalanceCents(-totalCost);
 
     const battle = createBattle(setup);
     setShowSetup(false);
@@ -92,6 +92,11 @@ export function Bitwy() {
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-purple-400/40 bg-purple-400/5 text-purple-300">
                         {MODE_LABELS[battle.mode]}
                       </span>
+                      {battle.battleFormat === "teams" && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border border-cyan-400/30 bg-cyan-400/5 text-cyan-300">
+                          2v2
+                        </span>
+                      )}
                     </div>
 
                     <p className="text-xs text-slate-500">

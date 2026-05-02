@@ -183,12 +183,13 @@ export function BattleSetupModal({ onClose, onConfirm, balanceCents }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const totalCost = computeTotalCostCents(cases);
-  const shareCents = Math.ceil(totalCost / selectedOption.maxPlayers);
+  const canAfford = totalCost <= balanceCents;
 
   const handleConfirm = () => {
+    setError(null);
     if (cases.length === 0) { setError("Dodaj co najmniej jedną skrzynkę."); return; }
-    if (shareCents > balanceCents) {
-      setError(`Niewystarczający balans. Potrzebujesz ${formatMoney(shareCents)}.`);
+    if (!canAfford) {
+      setError(`Niewystarczające środki na bitwę. Potrzebujesz ${formatMoney(totalCost)}.`);
       return;
     }
     onConfirm({
@@ -217,9 +218,7 @@ export function BattleSetupModal({ onClose, onConfirm, balanceCents }: Props) {
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
             {/* Format / player count */}
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Format
-              </p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Format</p>
               <div className="grid grid-cols-4 gap-2">
                 {FORMAT_OPTIONS.map((opt) => {
                   const active = selectedOption === opt;
@@ -238,9 +237,7 @@ export function BattleSetupModal({ onClose, onConfirm, balanceCents }: Props) {
                     >
                       <span className="text-lg font-black leading-none">{opt.label}</span>
                       <span className="text-[10px] mt-0.5 opacity-70">{opt.sub}</span>
-                      {opt.format === "teams" && (
-                        <Users className="w-3 h-3 mt-1 opacity-70" />
-                      )}
+                      {opt.format === "teams" && <Users className="w-3 h-3 mt-1 opacity-70" />}
                     </button>
                   );
                 })}
@@ -249,9 +246,7 @@ export function BattleSetupModal({ onClose, onConfirm, balanceCents }: Props) {
 
             {/* Mode */}
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Tryb bitwy
-              </p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Tryb bitwy</p>
               <div className="grid grid-cols-1 gap-2">
                 {ALL_MODES.map((m) => (
                   <button
@@ -316,17 +311,24 @@ export function BattleSetupModal({ onClose, onConfirm, balanceCents }: Props) {
               </button>
             </div>
 
-            {/* Cost summary */}
+            {/* Cost summary — user pays full cost, bots are free */}
             {cases.length > 0 && (
-              <div className="rounded-xl border border-slate-700/30 bg-slate-950/50 p-4 space-y-2">
+              <div className={`rounded-xl border p-4 space-y-2 ${canAfford ? "border-slate-700/30 bg-slate-950/50" : "border-red-500/30 bg-red-500/5"}`}>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Łączny koszt</span>
-                  <span className="font-black text-slate-200 font-mono">{formatMoney(totalCost)}</span>
+                  <span className="text-slate-400">Koszt bitwy (płacisz)</span>
+                  <span className={`font-black font-mono text-base ${canAfford ? "text-cyan-300" : "text-red-400"}`}>
+                    {formatMoney(totalCost)}
+                  </span>
                 </div>
-                <div className="flex justify-between text-sm border-t border-slate-700/30 pt-2">
-                  <span className="text-slate-400">Twoja część (÷{selectedOption.maxPlayers})</span>
-                  <span className="font-black text-cyan-300 font-mono">{formatMoney(shareCents)}</span>
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Twoje saldo</span>
+                  <span className="font-mono">{formatMoney(balanceCents)}</span>
                 </div>
+                {!canAfford && (
+                  <p className="text-xs text-red-400 pt-1 border-t border-red-500/20">
+                    Brakuje {formatMoney(totalCost - balanceCents)}
+                  </p>
+                )}
               </div>
             )}
 
@@ -339,7 +341,8 @@ export function BattleSetupModal({ onClose, onConfirm, balanceCents }: Props) {
             <button
               type="button"
               onClick={handleConfirm}
-              className="neon-button w-full h-12 text-base"
+              disabled={cases.length > 0 && !canAfford}
+              className="neon-button w-full h-12 text-base disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Utwórz bitwę
             </button>

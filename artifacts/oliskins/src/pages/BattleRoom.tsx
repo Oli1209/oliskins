@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Bot, User, Crown, Swords, Shield, Trophy,
@@ -6,12 +6,14 @@ import {
 } from "lucide-react";
 import { useGameStore } from "../store/useGameStore";
 import { useBattleStore } from "../store/useBattleStore";
-import { computePendingRewards, buildStepCaseList } from "../lib/battleRng";
+import { computePendingRewards, buildStepList } from "../lib/battleRng";
+import { getEffectiveDrops } from "../lib/chances";
 import { MODE_LABELS } from "../lib/battleTypes";
 import { rarityColors } from "../lib/rarity";
 import { formatMoney } from "../lib/format";
 import { mockCases } from "../data/mockCases";
 import { BattleReelStrip, RevealedDropCard } from "../components/BattleReelStrip";
+import type { BattleStep } from "../lib/battleRng";
 import type { Battle, BattleDrop, Participant } from "../lib/battleTypes";
 import type { InventoryItem } from "../lib/types";
 
@@ -118,23 +120,25 @@ function ParticipantColumn({
   slotIndex,
   battle,
   isTeams,
+  isShared,
   isWinner,
   isTeamWinner,
   revealedCount,
   animStep,
   spinning,
-  stepCaseList,
+  stepList,
 }: {
   participant: Participant;
   slotIndex: number;
   battle: Battle;
   isTeams: boolean;
+  isShared: boolean;
   isWinner: boolean;
   isTeamWinner: boolean;
   revealedCount: number;
   animStep: number;
   spinning: boolean;
-  stepCaseList: ReturnType<typeof buildStepCaseList>;
+  stepList: BattleStep[];
 }) {
   const result = battle.result!;
   const drops = result.dropsByParticipant[participant.id] ?? [];
@@ -142,18 +146,21 @@ function ParticipantColumn({
   const currentTotal = revealedDrops.reduce((s, d) => s + d.valueCents, 0);
 
   const team = isTeams ? teamOf(slotIndex) : null;
-  const teamAccent = team === "A" ? "cyan" : "purple";
+  const teamAccent = team === "A" ? "cyan" : team === "B" ? "purple" : "cyan";
 
-  const showReel = spinning && animStep < drops.length;
+  // Winner styling: no crown/ring in shared mode
+  const showWinnerRing = !isShared && (isWinner || isTeamWinner) && battle.status === "completed";
+  const showLoserDim = !isShared && battle.status === "completed" && !isWinner && !isTeamWinner;
+
+  const currentStep = stepList[animStep];
   const currentDrop = drops[animStep];
-  const currentCase = stepCaseList[animStep];
+  // Use effective drops for the correct mode as filler (Boost/Jester aware)
+  const fillerDrops = currentStep
+    ? getEffectiveDrops(currentStep.caseData, currentStep.sc.openMode)
+    : [];
 
-  const winnerRing = isWinner || isTeamWinner
-    ? "ring-2 ring-amber-400/60 shadow-[0_0_24px_rgba(251,191,36,0.2)]"
-    : "";
-  const loserDim = battle.status === "completed" && !isWinner && !isTeamWinner
-    ? "opacity-50"
-    : "";
+  const showReel = spinning && animStep >= 0 && animStep < drops.length && !!currentDrop && !!currentStep;
+  const betweenSteps = !spinning && revealedCount > 0 && revealedCount < drops.length;
 
   return (
     <div
@@ -163,7 +170,7 @@ function ParticipantColumn({
           : team === "B"
           ? "border-purple-500/30"
           : "border-slate-700/30"
-      } ${winnerRing} ${loserDim}`}
+      } ${showWinnerRing ? "ring-2 ring-amber-400/60 shadow-[0_0_24px_rgba(251,191,36,0.2)]" : ""} ${showLoserDim ? "opacity-50" : ""}`}
     >
       {/* Header */}
       <div className="flex items-center gap-2.5">
@@ -184,7 +191,7 @@ function ParticipantColumn({
             <p className={`text-[10px] font-bold text-${teamAccent}-400`}>Team {team}</p>
           )}
         </div>
-        {(isWinner || isTeamWinner) && battle.status === "completed" && (
+        {showWinnerRing && (
           <Crown className="w-5 h-5 text-amber-400 shrink-0" />
         )}
       </div>
@@ -207,21 +214,19 @@ function ParticipantColumn({
         </p>
       </div>
 
-      {/* Reel or idle */}
+      {/* Reel zone */}
       <div className="min-h-[120px]">
-        {showReel && currentDrop && currentCase ? (
+        {showReel ? (
           <BattleReelStrip
             key={`${participant.id}-step-${animStep}`}
-            fillerDrops={currentCase.drops}
+            fillerDrops={fillerDrops}
             winner={currentDrop}
             durationMs={REEL_DURATION_MS}
             tileSize={90}
           />
-        ) : spinning && !currentDrop ? null : !spinning && revealedCount > 0 && revealedCount <= drops.length ? (
+        ) : betweenSteps ? (
           <div className="flex items-center justify-center h-[110px] rounded-xl border border-slate-700/30 bg-slate-950/40">
-            {revealedCount < drops.length ? (
-              <p className="text-xs text-slate-500 animate-pulse">Przygotowanie…</p>
-            ) : null}
+            <p className="text-xs text-slate-600 animate-pulse">Następna skrzynka…</p>
           </div>
         ) : null}
       </div>
@@ -253,68 +258,90 @@ export function BattleRoom() {
 
   // ── countdown ──
   const [countdown, setCountdown] = useState<number | null>(null);
-  const countdownRef = useRef<number | null>(null);
+  const countdownTimerRef = useRef<number | null>(null);
 
   // ── animation state ──
-  const animStarted = useRef(false);
-  const [animStep, setAnimStep] = useState(0);
+  // animStep: index of the step currently showing/having shown its reel (-1 = not started)
+  const [animStep, setAnimStep] = useState(-1);
   const [revealedCount, setRevealedCount] = useState(0);
   const [spinning, setSpinning] = useState(false);
+  const animStarted = useRef(false);
+  const animCleanupRef = useRef<(() => void) | null>(null);
 
   // ── result ──
   const [showResult, setShowResult] = useState(false);
 
   const isTeams = battle?.battleFormat === "teams";
-  const totalSteps = useMemo(
-    () => battle?.cases.reduce((s, sc) => s + sc.qty, 0) ?? 0,
-    [battle?.cases]
-  );
+  const isShared = battle?.mode === "shared";
 
-  const stepCaseList = useMemo(
-    () => (battle ? buildStepCaseList(battle, mockCases) : []),
-    [battle]
-  );
+  // Precompute step list (carries caseData + openMode per step)
+  const stepList = battle ? buildStepList(battle, mockCases) : [];
+  const totalSteps = stepList.length;
 
-  // Start animation when battle goes in_progress
+  // ── Self-contained animation runner (fixes the React effect cleanup bug) ──
+  // We use a recursive setTimeout chain stored entirely in refs/closures.
+  // React state updates (setAnimStep, setSpinning, etc.) are one-way: they only
+  // trigger re-renders for display. Progression is driven by the closure, NOT
+  // by re-running effects when `spinning` changes.
   useEffect(() => {
     if (battle?.status !== "in_progress" || animStarted.current) return;
     animStarted.current = true;
-    setAnimStep(0);
-    setRevealedCount(0);
-    setSpinning(true);
-  }, [battle?.status]);
 
-  // Drive animation: when spinning ends, reveal + advance
-  useEffect(() => {
-    if (!spinning || battle?.status !== "in_progress") return;
+    const battleId = battle.id;
+    const steps = totalSteps; // captured once
+    const timers: number[] = [];
+    let cancelled = false;
 
-    let pauseTimer: number;
-
-    const timer = window.setTimeout(() => {
-      const nextRevealed = animStep + 1;
-      setRevealedCount(nextRevealed);
-      setSpinning(false);
-
-      pauseTimer = window.setTimeout(() => {
-        if (nextRevealed < totalSteps) {
-          setAnimStep(nextRevealed);
-          setSpinning(true);
-        } else {
-          completeBattle(battle.id);
-          setShowResult(true);
-        }
-      }, PAUSE_BETWEEN_STEPS_MS);
-    }, REEL_DURATION_MS + 150);
-
-    return () => {
-      window.clearTimeout(timer);
-      window.clearTimeout(pauseTimer);
+    const cleanup = () => {
+      cancelled = true;
+      timers.forEach((t) => window.clearTimeout(t));
+      timers.length = 0;
     };
-  }, [spinning, animStep]); // eslint-disable-line
+    animCleanupRef.current = cleanup;
 
-  // ── claim handler ──
+    const runStep = (step: number) => {
+      if (cancelled || step >= steps) return;
+
+      setAnimStep(step);
+      setSpinning(true);
+
+      const t1 = window.setTimeout(() => {
+        if (cancelled) return;
+        setRevealedCount(step + 1);
+        setSpinning(false);
+
+        const t2 = window.setTimeout(() => {
+          if (cancelled) return;
+          if (step + 1 < steps) {
+            runStep(step + 1);
+          } else {
+            // All steps done — complete and show results
+            completeBattle(battleId);
+            setShowResult(true);
+          }
+        }, PAUSE_BETWEEN_STEPS_MS);
+        timers.push(t2);
+      }, REEL_DURATION_MS + 150);
+      timers.push(t1);
+    };
+
+    runStep(0);
+
+    // Cleanup only on unmount (not when spinning changes — that was the bug!)
+    return cleanup;
+  }, [battle?.status]); // eslint-disable-line
+
+  // Ensure cleanup if component unmounts mid-animation
+  useEffect(() => {
+    return () => { animCleanupRef.current?.(); };
+  }, []);
+
+  // ── Claim handler (guarded against double-claim) ──
   const handleClaim = (action: "keep" | "sell" | "shared") => {
-    if (!battle?.result) { setShowResult(false); return; }
+    if (!battle?.result || battle.result.claimed) {
+      navigate("/bitwy");
+      return;
+    }
 
     if (action === "shared") {
       const perHead = battle.result.sharedPerHeadCents ?? 0;
@@ -345,7 +372,7 @@ export function BattleRoom() {
     navigate("/bitwy");
   };
 
-  // Not found
+  // ── Not found ──
   if (!battle) {
     return (
       <div className="container mx-auto px-4 py-16 text-center">
@@ -356,22 +383,23 @@ export function BattleRoom() {
   }
 
   const result = battle.result;
-  const isHost = true; // User is always host for their own battles
+  const isHost = true;
 
-  // ── Determine winners ──
   const winnerIds = new Set<string>();
   if (result?.winnerId) winnerIds.add(result.winnerId);
   const winnerTeam = result?.teamWinnerId ?? null;
 
-  // ── Countdown helper ──
+  // ── Countdown start ──
   const handleStartCountdown = () => {
     if (battle.participants.length < battle.maxPlayers) return;
+    if (countdownTimerRef.current) return; // already counting
     let count = COUNTDOWN_START;
     setCountdown(count);
-    countdownRef.current = window.setInterval(() => {
+    countdownTimerRef.current = window.setInterval(() => {
       count--;
       if (count <= 0) {
-        window.clearInterval(countdownRef.current!);
+        window.clearInterval(countdownTimerRef.current!);
+        countdownTimerRef.current = null;
         setCountdown(null);
         startBattle(battle.id);
       } else {
@@ -388,7 +416,6 @@ export function BattleRoom() {
 
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
-        {/* Back + title */}
         <div className="flex items-center gap-3">
           <Link to="/bitwy" className="p-2 rounded-lg text-slate-400 hover:text-cyan-300 transition-colors">
             <ArrowLeft className="w-5 h-5" />
@@ -405,7 +432,6 @@ export function BattleRoom() {
           )}
         </div>
 
-        {/* Team labels for 2v2 */}
         {isTeams && (
           <div className="grid grid-cols-2 gap-4">
             <div className="text-center">
@@ -421,8 +447,12 @@ export function BattleRoom() {
           </div>
         )}
 
-        {/* Slots */}
-        <div className={`grid gap-3 ${isTeams ? "grid-cols-2" : battle.maxPlayers === 2 ? "grid-cols-2" : battle.maxPlayers === 3 ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-4"}`}>
+        <div className={`grid gap-3 ${
+          isTeams ? "grid-cols-2"
+          : battle.maxPlayers === 2 ? "grid-cols-2"
+          : battle.maxPlayers === 3 ? "grid-cols-3"
+          : "grid-cols-2 sm:grid-cols-4"
+        }`}>
           {slots.map((p, i) => (
             <WaitingSlot
               key={i}
@@ -436,7 +466,6 @@ export function BattleRoom() {
           ))}
         </div>
 
-        {/* Cases preview */}
         <div className="glass-strong rounded-xl border border-slate-700/30 p-4">
           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">Skrzynki</p>
           <div className="flex flex-wrap gap-2">
@@ -446,14 +475,13 @@ export function BattleRoom() {
                 <div key={i} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700/40 bg-slate-900/50">
                   {c?.image && <img src={c.image} alt="" className="w-6 h-5 rounded object-cover" />}
                   <span className="text-xs font-bold text-slate-300">{c?.name ?? sc.caseId}</span>
-                  <span className="text-[10px] text-slate-500">×{sc.qty}</span>
+                  <span className="text-[10px] text-slate-500">×{sc.qty} · {sc.openMode}</span>
                 </div>
               );
             })}
           </div>
         </div>
 
-        {/* Start */}
         <div className="flex items-center justify-between gap-4">
           <p className="text-sm text-slate-500">
             {battle.participants.length}/{battle.maxPlayers} graczy
@@ -469,7 +497,9 @@ export function BattleRoom() {
               disabled={!full}
               className="neon-button px-8 py-3 text-base disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {full ? "Rozpocznij bitwę" : `Czekaj na graczy (${battle.participants.length}/${battle.maxPlayers})`}
+              {full
+                ? "Rozpocznij bitwę"
+                : `Czekaj na graczy (${battle.participants.length}/${battle.maxPlayers})`}
             </button>
           )}
         </div>
@@ -487,39 +517,27 @@ export function BattleRoom() {
     );
   }
 
-  // Build column order: for teams, show Team A then Team B in a 2x2 grid
-  const participantOrder = battle.participants;
-
-  // Winner determination
-  const isParticipantWinner = (p: Participant, idx: number): boolean => {
-    if (winnerTeam) {
-      const pTeam = teamOf(idx);
-      return pTeam === winnerTeam;
-    }
-    return winnerIds.has(p.id);
-  };
-
-  // Teams: compute team totals from revealed drops
+  // Team revealed totals (for score bar)
   const teamATotalRevealed = isTeams
-    ? (battle.participants[0]
-        ? (result.dropsByParticipant[battle.participants[0].id] ?? []).slice(0, revealedCount).reduce((s, d) => s + d.valueCents, 0)
-        : 0) +
-      (battle.participants[1]
-        ? (result.dropsByParticipant[battle.participants[1].id] ?? []).slice(0, revealedCount).reduce((s, d) => s + d.valueCents, 0)
-        : 0)
+    ? [0, 1].reduce((s, i) => {
+        const p = battle.participants[i];
+        if (!p) return s;
+        return s + (result.dropsByParticipant[p.id] ?? []).slice(0, revealedCount).reduce((a, d) => a + d.valueCents, 0);
+      }, 0)
     : 0;
   const teamBTotalRevealed = isTeams
-    ? (battle.participants[2]
-        ? (result.dropsByParticipant[battle.participants[2].id] ?? []).slice(0, revealedCount).reduce((s, d) => s + d.valueCents, 0)
-        : 0) +
-      (battle.participants[3]
-        ? (result.dropsByParticipant[battle.participants[3].id] ?? []).slice(0, revealedCount).reduce((s, d) => s + d.valueCents, 0)
-        : 0)
+    ? [2, 3].reduce((s, i) => {
+        const p = battle.participants[i];
+        if (!p) return s;
+        return s + (result.dropsByParticipant[p.id] ?? []).slice(0, revealedCount).reduce((a, d) => a + d.valueCents, 0);
+      }, 0)
     : 0;
+
+  const participantOrder = battle.participants;
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-5xl space-y-5">
-      {/* Header bar */}
+      {/* Header */}
       <div className="flex items-center gap-3 flex-wrap">
         <Link to="/bitwy" className="p-2 rounded-lg text-slate-400 hover:text-cyan-300 transition-colors">
           <ArrowLeft className="w-5 h-5" />
@@ -557,11 +575,9 @@ export function BattleRoom() {
       {/* Participant columns */}
       <div
         className={`grid gap-4 ${
-          participantOrder.length <= 2
-            ? "grid-cols-2"
-            : participantOrder.length === 3
-            ? "grid-cols-3"
-            : "grid-cols-2 lg:grid-cols-4"
+          participantOrder.length <= 2 ? "grid-cols-2"
+          : participantOrder.length === 3 ? "grid-cols-3"
+          : "grid-cols-2 lg:grid-cols-4"
         }`}
       >
         {participantOrder.map((p, idx) => (
@@ -571,12 +587,13 @@ export function BattleRoom() {
             slotIndex={idx}
             battle={battle}
             isTeams={isTeams}
+            isShared={isShared}
             isWinner={winnerIds.has(p.id)}
-            isTeamWinner={winnerTeam !== null && winnerTeam !== undefined ? teamOf(idx) === winnerTeam : false}
+            isTeamWinner={winnerTeam != null ? teamOf(idx) === winnerTeam : false}
             revealedCount={revealedCount}
             animStep={animStep}
             spinning={spinning}
-            stepCaseList={stepCaseList}
+            stepList={stepList}
           />
         ))}
       </div>
@@ -588,7 +605,7 @@ export function BattleRoom() {
             <div className="text-center space-y-1">
               <Trophy className="w-10 h-10 text-amber-400 mx-auto" />
               <h2 className="text-2xl font-black text-slate-100">
-                {battle.mode === "shared"
+                {isShared
                   ? "Wyniki bitwy"
                   : winnerTeam
                   ? `Team ${winnerTeam} wygrywa!`
@@ -598,7 +615,7 @@ export function BattleRoom() {
               </h2>
             </div>
 
-            {battle.mode === "shared" ? (
+            {isShared ? (
               <div className="space-y-3">
                 <div className="rounded-xl border border-slate-700/30 bg-slate-950/50 p-4 space-y-2">
                   <div className="flex justify-between text-sm">
@@ -630,7 +647,6 @@ export function BattleRoom() {
                   const pending = computePendingRewards(battle);
                   const userWon = pending.length > 0;
                   const totalVal = pending.reduce((s, d) => s + d.valueCents, 0);
-
                   return (
                     <>
                       {userWon ? (
@@ -659,7 +675,6 @@ export function BattleRoom() {
                           <p className="text-slate-400 text-sm">Nie wygrałeś tej bitwy.</p>
                         </div>
                       )}
-
                       <div className="grid grid-cols-2 gap-3">
                         {userWon ? (
                           <>
