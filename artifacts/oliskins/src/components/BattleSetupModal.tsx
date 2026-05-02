@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { X, ChevronRight, ChevronLeft, Search, ArrowUpDown } from "lucide-react";
-import { mockCases } from "../data/mockCases";
+import { useCaseStore } from "../store/useCaseStore";
 import type { SelectedCase } from "../lib/battleTypes";
 import type { Mode } from "../lib/chances";
 import { getUnitCostCents } from "../lib/chances";
@@ -26,6 +26,7 @@ interface Props {
 }
 
 export function CaseSelectorModal({ onAdd, onClose }: Props) {
+  const paidCases = useCaseStore((s) => s.paidCases);
   const [step, setStep] = useState<"pick" | "config">("pick");
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
@@ -33,10 +34,10 @@ export function CaseSelectorModal({ onAdd, onClose }: Props) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("default");
 
-  const pickedCase = mockCases.find((c) => c.id === pickedId);
+  const pickedCase = paidCases.find((c) => c.id === pickedId);
 
   const filteredCases = useMemo(() => {
-    let list = mockCases.filter(
+    let list = paidCases.filter(
       (c) => c.priceCents > 0 && c.name.toLowerCase().includes(search.toLowerCase())
     );
     if (sort === "price-asc") list = [...list].sort((a, b) => a.priceCents - b.priceCents);

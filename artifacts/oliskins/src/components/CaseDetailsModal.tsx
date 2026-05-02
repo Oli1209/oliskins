@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { X } from "lucide-react";
 import { Case, InventoryItem } from "../lib/types";
 import { useGameStore } from "../store/useGameStore";
-import { mockCases } from "../data/mockCases";
+import { useCaseStore } from "../store/useCaseStore";
 import { formatMoney } from "../lib/format";
 import { rarityColors } from "../lib/rarity";
 import { CaseReelStrip } from "./CaseReelStrip";
@@ -392,7 +392,8 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
 export function CaseDetailsRoute() {
   const { caseId } = useParams();
   const navigate = useNavigate();
-  const caseData = mockCases.find((c) => c.id === caseId);
+  const paidCases = useCaseStore((s) => s.paidCases);
+  const caseData = paidCases.find((c) => c.id === caseId);
 
   useEffect(() => {
     if (!caseData) navigate("/skrzynki", { replace: true });

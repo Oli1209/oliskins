@@ -1,5 +1,5 @@
 import { Link, Outlet } from "react-router-dom";
-import { mockCases } from "../data/mockCases";
+import { useCaseStore } from "../store/useCaseStore";
 import { useGameStore } from "../store/useGameStore";
 import { formatMoney } from "../lib/format";
 import { rarityColors } from "../lib/rarity";
@@ -7,6 +7,7 @@ import { GlassCard } from "../components/GlassCard";
 
 export function Skrzynki() {
   const balanceCents = useGameStore((s) => s.balanceCents);
+  const paidCases = useCaseStore((s) => s.paidCases);
 
   return (
     <div className="container mx-auto px-4 py-8 relative">
@@ -20,7 +21,7 @@ export function Skrzynki() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {mockCases.map((c) => {
+        {paidCases.map((c) => {
           const canAfford = balanceCents >= c.priceCents;
           return (
             <Link

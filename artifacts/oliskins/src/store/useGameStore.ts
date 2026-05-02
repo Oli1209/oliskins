@@ -9,7 +9,7 @@ import {
   CENTS_PER_XP,
   computeLevel,
 } from "../lib/types";
-import { mockCases } from "../data/mockCases";
+import { useCaseStore } from "./useCaseStore";
 import { freeCases } from "../data/freeCases";
 import { pickWeighted } from "../lib/random";
 import { getEffectiveDrops, getTotalCostCents } from "../lib/chances";
@@ -81,7 +81,7 @@ export const useGameStore = create<GameState>()(
 
       openCase: (caseId, mode = "normal") => {
         const state = get();
-        const caseData = mockCases.find((c) => c.id === caseId);
+        const caseData = useCaseStore.getState().paidCases.find((c) => c.id === caseId);
 
         if (!caseData) return { ok: false, reason: "unknown_case" };
 

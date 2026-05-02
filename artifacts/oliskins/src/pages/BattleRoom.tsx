@@ -12,7 +12,7 @@ import { getEffectiveDrops } from "../lib/chances";
 import { MODE_LABELS } from "../lib/battleTypes";
 import { rarityColors } from "../lib/rarity";
 import { formatMoney } from "../lib/format";
-import { mockCases } from "../data/mockCases";
+import { useCaseStore } from "../store/useCaseStore";
 import { BattleReelStrip, RevealedDropCard } from "../components/BattleReelStrip";
 import type { BattleStep } from "../lib/battleRng";
 import type { Battle, BattleDrop, BattleMode, Participant } from "../lib/battleTypes";
@@ -124,7 +124,7 @@ function TopBar({ battle }: { battle: Battle }) {
       <div className="flex-1 overflow-x-auto">
         <div className="flex items-center gap-2 py-0.5" style={{ minWidth: "max-content" }}>
           {battle.cases.map((sc, i) => {
-            const c = mockCases.find((x) => x.id === sc.caseId);
+            const c = useCaseStore.getState().paidCases.find((x) => x.id === sc.caseId);
             return (
               <div key={i} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-700/40 bg-slate-900/60 text-[11px]">
                 {c?.image && <img src={c.image} alt="" className="w-6 h-5 rounded object-cover" />}
@@ -452,9 +452,11 @@ export function BattleRoom() {
   const isShared = battle?.mode === "shared";
   const userId = battle?.participants[0]?.id ?? "user";
 
+  const paidCases = useCaseStore((s) => s.paidCases);
+
   const stepList = useMemo(
-    () => (battle ? buildStepList(battle, mockCases) : []),
-    [battle]
+    () => (battle ? buildStepList(battle, paidCases) : []),
+    [battle, paidCases]
   );
   const totalSteps = stepList.length;
 
@@ -581,7 +583,7 @@ export function BattleRoom() {
     if (battle?.status === "completed") {
       animStarted.current = true;
       setBattlePhase("done");
-      const steps = buildStepList(battle, mockCases).length;
+      const steps = buildStepList(battle, useCaseStore.getState().paidCases).length;
       setRevealedCount(steps);
       if (steps > 0) setAnimStep(steps - 1);
       if (!battle.result?.claimed && userWonRef.current) setShowLootModal(true);
@@ -761,7 +763,7 @@ export function BattleRoom() {
           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-3">Skrzynki</p>
           <div className="flex flex-wrap gap-2">
             {battle.cases.map((sc, i) => {
-              const c = mockCases.find((x) => x.id === sc.caseId);
+              const c = useCaseStore.getState().paidCases.find((x) => x.id === sc.caseId);
               return (
                 <div key={i} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700/40 bg-slate-900/50">
                   {c?.image && <img src={c.image} alt="" className="w-6 h-5 rounded object-cover" />}

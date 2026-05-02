@@ -1,0 +1,53 @@
+Implement a Case Builder MVP (frontend-only) to create and edit paid cases without needing a dataset. Store cases in localStorage and use them across the app (cases list, opening modal, battles).
+
+1) Storage model
+Create a persisted store (Zustand) for paid cases, or extend existing store safely:
+paidCases: Case[]
+On first run, initialize paidCases with the current paid mock cases (so user has examples).
+Persist under a clear key (reuse existing app state persistence if safe).
+2) Routes / Navigation
+Add a route /admin (or /edytor-skrzynek) titled “Edytor skrzynek”.
+Add a subtle link in Profile or header (can be small) to open the editor.
+3) Editor UI (two-panel layout)
+Page layout (desktop):
+
+Left panel: list of cases
+button “+ Nowa skrzynka”
+each case row shows name + price, click to edit
+Right panel: case editor for selected case:
+fields: name, description, priceCents (with # formatted helper), image URL (string)
+button “Usuń skrzynkę”
+Drops editor inside the selected case:
+
+Table/list of drops with columns:
+name, rarity, valueCents, weight, image URL
+Buttons:
+“+ Dodaj drop”
+per-drop: “Edytuj” (inline) and “Usuń”
+Show computed info:
+“Suma wag: X”
+chance% preview per drop (2 decimals)
+Validation:
+
+priceCents >= 0
+drop weight > 0
+valueCents >= 0
+prevent saving if invalid; show Polish inline errors.
+4) Export/Import JSON (critical)
+Add an “Export” section:
+button “Kopiuj JSON” (copies paidCases JSON to clipboard)
+Add an “Import” section:
+textarea to paste JSON
+button “Importuj” with confirmation
+validate structure (use Zod schema if available)
+5) Wire into the app
+Update the app to use paidCases from this builder store everywhere paid cases are used:
+/skrzynki list
+case opening modal
+battles case selection (exclude free cases)
+Free cases remain separate and are NOT editable in this MVP.
+Acceptance
+User can create/edit/delete cases and drops.
+Changes persist after refresh.
+Export/import works.
+The rest of the app uses the edited cases immediately.

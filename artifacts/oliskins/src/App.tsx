@@ -14,6 +14,7 @@ import { Mines } from "./pages/Mines";
 import { Crash } from "./pages/Crash";
 import { Bitwy } from "./pages/Bitwy";
 import { BattleRoom } from "./pages/BattleRoom";
+import { EdytorSkrzynek } from "./pages/EdytorSkrzynek";
 import { CaseDetailsRoute } from "./components/CaseDetailsModal";
 import { FreeCaseRoute } from "./components/FreeCaseModal";
 
@@ -54,6 +55,7 @@ function App() {
             </Route>
             <Route path="/bitwy" element={<Bitwy />} />
             <Route path="/bitwy/:id" element={<BattleRoom />} />
+            <Route path="/edytor-skrzynek" element={<EdytorSkrzynek />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
