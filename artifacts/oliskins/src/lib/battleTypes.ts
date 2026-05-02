@@ -33,6 +33,12 @@ export interface BattleDrop {
   valueCents: number;
   stepIndex: number;
   groupIndex: number;
+  /** Which case this drop came from */
+  caseId: string;
+  /** Opening mode used (Normal/Boost/Jester) — affects chanceAtDrop */
+  openMode: Mode;
+  /** Drop probability (0–100) under the effective mode weights */
+  chanceAtDrop: number;
 }
 
 export interface BattleResult {

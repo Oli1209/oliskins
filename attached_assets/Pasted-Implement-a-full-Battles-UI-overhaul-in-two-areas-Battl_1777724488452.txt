@@ -1,0 +1,134 @@
+Implement a full Battles UI overhaul in two areas:
+
+Battle creation/setup UI (make it bigger, clearer, less monotone).
+In-battle UI/animations (vertical reels, leader rings, tie-roll animation, in-page end screen, delayed winner popup).
+IMPORTANT:
+
+Frontend-only, local battles only.
+Do NOT change battle outcome logic (drops, totals, winner selection, seeded RNG) except UI-only animations.
+Keep payment logic and shared payout logic exactly as currently fixed.
+Keep styling consistent with the app: navy/cyan glass, premium.
+=====================================================
+PART A — BATTLE SETUP UI OVERHAUL (/bitwy)
+A1) Main battles page layout
+On /bitwy:
+
+Add a large header section:
+Title: “Bitwy na skrzynki”
+Subtitle: short Polish description
+Use a 2-column layout on desktop:
+Left: “Utwórz bitwę” (setup panel)
+Right: “Aktywne bitwy” (local list cards)
+On mobile: stack sections vertically.
+A2) Setup panel (bigger, clearer)
+Create a large glass-strong setup card with these sections:
+
+(1) Skrzynki w bitwie
+
+Show selected cases as a list of rows/cards:
+case image + name
+mode badge (Normal/Boost/Jester)
+quantity stepper (1–5) for that selected case
+per-row cost (#)
+remove (X)
+Big dashed button: “+ Dodaj skrzynkę”
+(2) Ustawienia bitwy
+
+Players selector: large pill buttons 2 / 3 / 4 (+ 2v2 only if supported; otherwise ignore)
+Battle mode selector: big cards/buttons with icons and short descriptions:
+Standard (⚔️ największa suma)
+Underdog (🐕 najmniejsza suma)
+Shared (🤝 równa wypłata)
+Terminal (⏭ wygrywa ostatnia skrzynka – najlepszy drop)
+Crazy Terminal (⏮ wygrywa ostatnia skrzynka – najgorszy drop)
+(3) Podsumowanie kosztów
+
+Show a clean cost summary box:
+“Łączny koszt bitwy: #X.XX” (large)
+Optional small breakdown line: number of opens / cases
+Primary CTA: “Utwórz bitwę”
+Secondary: “Wyczyść” (reset setup)
+UX rules:
+
+Disable “Utwórz bitwę” if no cases selected.
+Use subtle micro-animations (hover glow, scale) but keep it clean.
+A3) Case selector modal (less monotone)
+Improve CaseSelectorModal:
+
+Step 1: case grid with search + sort (price asc/desc).
+Step 2: configuration view:
+big selected case preview
+quantity selector (1–5)
+mode selector Normal/Boost/Jester (clickable)
+live cost calculation
+“Dodaj do bitwy” CTA
+Ensure modal is wide and readable.
+Exclude free cases from selection.
+A4) Local active battles list
+Make battle cards clearer:
+
+Show mode badge, players count, mini case strip, total cost.
+Buttons: “Wejdź”, “Usuń”.
+=====================================================
+PART B — IN‑BATTLE UI/ANIMATION OVERHAUL (/bitwy/:id)
+B1) Battle top bar
+Add a large top bar with:
+
+Left: battle mode badge + icon
+Center: horizontal strip of all selected cases in order (mini images + qty badges + per-case mode badges)
+Right: “Koszt bitwy: #X.XX”
+Responsive: strip scrolls horizontally on small screens.
+B2) Participant cards (bigger + clearer)
+Render participants as large columns (2/3/4 cols):
+
+Header row: avatar/icon + name + running total (#)
+Main area: VERTICAL reel (tall, shows more items, clear center indicator line)
+Below: obtained items grid 3 columns showing ALL items obtained so far, each tile shows:
+image
+name (short)
+value (#)
+chance% (2 decimals)
+Chance% rule:
+
+For each obtained item, compute chance% from the effective weights of the case and openMode used for that step (Normal/Boost/Jester).
+If needed, store metadata per obtained item: caseId, openMode, chanceAtDrop.
+B3) Real vertical reel animation per step
+During each step, all participants roll simultaneously and land on their precomputed deterministic winner.
+Smooth slow-down easing, similar feel to case opening.
+Between steps show a subtle “Przygotowanie…” transition (fade/slide), not a hard stop.
+B4) Dynamic leader ring (multi-leader on ties)
+Standard: highlight current max-total leader(s) with cyan/green glowing ring.
+Underdog: highlight current min-total leader(s) with amber/yellow ring.
+Shared: no leader ring.
+If tie: multiple rings at once.
+B5) Completion in-page (no immediate popup)
+When battle completes:
+
+Do NOT immediately show a popup.
+Show a clean end state inside the battle view:
+Winner banner at top (“Zwycięzca: …”) OR for Shared: “Shared: wypłata równa dla wszystkich”.
+Winner card: trophy + green glow, losers: red X, except Shared.
+Add subtle end effects:
+if user won: tasteful gold/cyan confetti burst
+if user lost: no confetti
+B6) Tie-break draw animation (visible RNG)
+If winner selection required a tie-break:
+
+Show a short 1–2s animation text “Remis — losowanie zwycięzcy…”
+Cycle a highlight/glow between tied participants, then stop on the chosen one.
+Winner is already decided by seeded RNG; this is UI-only.
+B7) Winner loot popup (delayed)
+If user is eligible for loot (winner in winner-takes-all modes):
+After ~3 seconds from completion, show a nicer loot popup:
+large item cards (like opening summary)
+“Sprzedaj wszystko” and “Zachowaj”
+optional per-item sell
+If user lost: no loot popup.
+Ensure keep/sell affects ONLY battle reward items.
+=====================================================
+Acceptance
+Setup UI is larger, clearer, less monotone; case selection and configuration are smooth.
+In-battle UI matches premium style with vertical reels and clear item grids.
+Leader rings behave correctly per mode; none in Shared.
+Completion is in-page; delayed loot popup only if user won.
+Tie-break draw animation appears when ties happen.

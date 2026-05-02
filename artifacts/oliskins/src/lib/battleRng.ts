@@ -86,7 +86,6 @@ export function precomputeBattleResult(
   allCases: Case[]
 ): BattleResult {
   const rng = new SeededRNG(seedFromString(battle.id + battle.createdAt));
-  // Keep a separate RNG for tiebreaks so drop order doesn't affect it
   const tieRng = new SeededRNG(seedFromString("tie" + battle.id + battle.createdAt));
   const isTeams = battle.battleFormat === "teams";
 
@@ -109,6 +108,10 @@ export function precomputeBattleResult(
         const pickable = effectiveDrops.map((d) => ({ ...d, weight: d.effectiveWeight }));
         const drop = pickWeightedSeeded(pickable, rng);
 
+        // Find the chancePct for the selected drop
+        const droppedEffective = effectiveDrops.find((ed) => ed.id === drop.id);
+        const chanceAtDrop = droppedEffective?.chancePct ?? 0;
+
         dropsByParticipant[p.id].push({
           instanceId: `battle-${battle.id}-${p.id}-${thisStep}`,
           dropId: drop.id,
@@ -118,6 +121,9 @@ export function precomputeBattleResult(
           valueCents: drop.valueCents,
           stepIndex: thisStep,
           groupIndex: thisGroup,
+          caseId: caseData.id,
+          openMode: sc.openMode,
+          chanceAtDrop,
         });
       }
     }
@@ -134,7 +140,7 @@ export function precomputeBattleResult(
     lastGroupDropsByParticipant[p.id] = drops.filter((d) => d.groupIndex === lastGroupIndex);
   }
 
-  // ── Shared: cash-only equal split ─────────────────────────────────────────
+  // ── Shared ─────────────────────────────────────────────────────────────────
   if (battle.mode === "shared") {
     const potTotal = Object.values(totalValueByParticipant).reduce((s, v) => s + v, 0);
     return {

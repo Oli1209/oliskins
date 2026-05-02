@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Bot, User, Crown, Swords, Shield, Trophy,
-  Plus, X as XIcon,
+  Plus, X as XIcon, TrendingDown, Users, SkipForward, Rewind,
 } from "lucide-react";
 import { useGameStore } from "../store/useGameStore";
 import { useBattleStore } from "../store/useBattleStore";
 import { computePendingRewards, buildStepList } from "../lib/battleRng";
+import { computeTotalCostCents } from "../store/useBattleStore";
 import { getEffectiveDrops } from "../lib/chances";
 import { MODE_LABELS } from "../lib/battleTypes";
 import { rarityColors } from "../lib/rarity";
@@ -14,147 +15,277 @@ import { formatMoney } from "../lib/format";
 import { mockCases } from "../data/mockCases";
 import { BattleReelStrip, RevealedDropCard } from "../components/BattleReelStrip";
 import type { BattleStep } from "../lib/battleRng";
-import type { Battle, BattleDrop, Participant } from "../lib/battleTypes";
+import type { Battle, BattleDrop, BattleMode, Participant } from "../lib/battleTypes";
 import type { InventoryItem } from "../lib/types";
 
 const REEL_DURATION_MS = 3200;
 const PAUSE_BETWEEN_STEPS_MS = 900;
 const COUNTDOWN_START = 3;
+type BattlePhase = "idle" | "running" | "tiebreak" | "done";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Mode UI helpers ──────────────────────────────────────────────────────────
 
-function teamOf(idx: number): "A" | "B" {
-  return idx < 2 ? "A" : "B";
+import type { ElementType } from "react";
+
+const MODE_ICONS: Record<BattleMode, ElementType> = {
+  standard: Swords,
+  underdog: TrendingDown,
+  shared: Users,
+  terminal: SkipForward,
+  crazy_terminal: Rewind,
+};
+
+const MODE_BADGE_COLORS: Record<BattleMode, string> = {
+  standard: "border-cyan-500/50 bg-cyan-500/10 text-cyan-300",
+  underdog: "border-amber-500/50 bg-amber-500/10 text-amber-300",
+  shared: "border-emerald-500/50 bg-emerald-500/10 text-emerald-300",
+  terminal: "border-purple-500/50 bg-purple-500/10 text-purple-300",
+  crazy_terminal: "border-orange-500/50 bg-orange-500/10 text-orange-300",
+};
+
+function getLeaderRingClass(mode: BattleMode): string {
+  switch (mode) {
+    case "standard":      return "ring-2 ring-cyan-400/75 shadow-[0_0_18px_rgba(34,211,238,0.3)]";
+    case "underdog":      return "ring-2 ring-amber-400/75 shadow-[0_0_18px_rgba(251,191,36,0.3)]";
+    case "terminal":      return "ring-2 ring-emerald-400/75 shadow-[0_0_18px_rgba(52,211,153,0.3)]";
+    case "crazy_terminal":return "ring-2 ring-orange-400/75 shadow-[0_0_18px_rgba(251,146,60,0.3)]";
+    default: return "";
+  }
 }
 
-// ─── Waiting Slot ─────────────────────────────────────────────────────────────
+function getWinnerRingClass(mode: BattleMode): string {
+  switch (mode) {
+    case "standard":      return "ring-2 ring-cyan-400 shadow-[0_0_28px_rgba(34,211,238,0.5)]";
+    case "underdog":      return "ring-2 ring-amber-400 shadow-[0_0_28px_rgba(251,191,36,0.5)]";
+    case "terminal":      return "ring-2 ring-emerald-400 shadow-[0_0_28px_rgba(52,211,153,0.5)]";
+    case "crazy_terminal":return "ring-2 ring-orange-400 shadow-[0_0_28px_rgba(251,146,60,0.5)]";
+    default: return "";
+  }
+}
+
+function teamOf(idx: number): "A" | "B" { return idx < 2 ? "A" : "B"; }
+
+// ─── Confetti ────────────────────────────────────────────────────────────────
+
+function ConfettiEffect() {
+  const particles = useMemo(
+    () => Array.from({ length: 55 }, (_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 1.5,
+      duration: 2 + Math.random() * 2,
+      color: ["#22d3ee", "#f59e0b", "#10b981", "#a855f7", "#f97316", "#ec4899"][i % 6],
+      size: 6 + Math.random() * 7,
+      circle: i % 3 !== 0,
+    })),
+    []
+  );
+  return (
+    <>
+      <style>{`@keyframes cfFall{0%{transform:translateY(-10px) rotate(0);opacity:1}100%{transform:translateY(105vh) rotate(700deg);opacity:0}}`}</style>
+      <div className="pointer-events-none fixed inset-0 overflow-hidden z-40">
+        {particles.map((p) => (
+          <div
+            key={p.id}
+            style={{
+              position: "absolute", left: `${p.left}%`, top: 0,
+              width: p.size, height: p.size, backgroundColor: p.color,
+              borderRadius: p.circle ? "50%" : "2px",
+              animation: `cfFall ${p.duration}s ${p.delay}s ease-in forwards`,
+            }}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ─── Top bar ─────────────────────────────────────────────────────────────────
+
+function TopBar({ battle }: { battle: Battle }) {
+  const Icon = MODE_ICONS[battle.mode];
+  const total = computeTotalCostCents(battle.cases);
+  return (
+    <div className="glass-strong rounded-xl border border-slate-700/30 px-4 py-3 flex items-center gap-4">
+      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-black shrink-0 ${MODE_BADGE_COLORS[battle.mode]}`}>
+        <Icon className="w-4 h-4" />
+        {MODE_LABELS[battle.mode]}
+        {battle.battleFormat === "teams" && <span className="text-[10px] opacity-60 ml-1">2v2</span>}
+      </div>
+      <div className="flex-1 overflow-x-auto">
+        <div className="flex items-center gap-2 py-0.5" style={{ minWidth: "max-content" }}>
+          {battle.cases.map((sc, i) => {
+            const c = mockCases.find((x) => x.id === sc.caseId);
+            return (
+              <div key={i} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-700/40 bg-slate-900/60 text-[11px]">
+                {c?.image && <img src={c.image} alt="" className="w-6 h-5 rounded object-cover" />}
+                <span className="font-bold text-slate-300 whitespace-nowrap">{c?.name}</span>
+                <span className="text-slate-600">×{sc.qty}</span>
+                {sc.openMode !== "normal" && (
+                  <span className={`font-bold text-[10px] ${sc.openMode === "boost" ? "text-amber-400" : "text-purple-400"}`}>
+                    {sc.openMode}
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div className="shrink-0 text-right">
+        <p className="text-[10px] text-slate-600">Koszt bitwy</p>
+        <p className="text-sm font-black text-slate-300 font-mono">{formatMoney(total)}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tiebreak banner ─────────────────────────────────────────────────────────
+
+function TiebreakBanner({ names }: { names: string[] }) {
+  return (
+    <div className="glass-strong rounded-2xl border border-amber-400/50 bg-amber-400/5 p-5 text-center animate-pulse">
+      <Swords className="w-8 h-8 text-amber-400 mx-auto mb-2" />
+      <p className="text-xl font-black text-amber-300">Remis — losowanie zwycięzcy…</p>
+      <p className="text-sm text-amber-400/70 mt-1">{names.join(" vs ")}</p>
+    </div>
+  );
+}
+
+// ─── Winner banner ────────────────────────────────────────────────────────────
+
+function WinnerBanner({
+  battle, result, onClaimShared,
+}: {
+  battle: Battle;
+  result: { winnerId: string | null; teamWinnerId?: "A" | "B" | null; sharedPerHeadCents?: number; claimed: boolean };
+  onClaimShared: () => void;
+}) {
+  const isShared = battle.mode === "shared";
+  const isTeams = battle.battleFormat === "teams";
+  const userId = battle.participants[0]?.id ?? "";
+
+  let title: string;
+  let subtitle: string = "";
+  let borderCls = "border-slate-600/40";
+
+  if (isShared) {
+    title = "Shared — Równa wypłata";
+    subtitle = `Każdy otrzymuje ${formatMoney(result.sharedPerHeadCents ?? 0)} gotówki`;
+    borderCls = "border-emerald-500/40";
+  } else if (isTeams && result.teamWinnerId) {
+    title = `Team ${result.teamWinnerId} wygrywa!`;
+    borderCls = result.teamWinnerId === "A" ? "border-cyan-500/50" : "border-purple-500/50";
+  } else if (result.winnerId) {
+    const w = battle.participants.find((p) => p.id === result.winnerId);
+    title = `${w?.name ?? "Gracz"} wygrywa!`;
+    subtitle = result.winnerId === userId ? "Gratulacje! Nagrody pojawią się za chwilę." : "Nie tym razem.";
+    borderCls = result.winnerId === userId ? "border-amber-400/50" : "border-slate-600/40";
+  } else {
+    title = "Koniec bitwy";
+  }
+
+  return (
+    <div className={`glass-strong rounded-2xl border ${borderCls} p-5 text-center space-y-2`}>
+      <Trophy className="w-10 h-10 text-amber-400 mx-auto" />
+      <h2 className="text-2xl font-black text-slate-100">{title}</h2>
+      {subtitle && <p className="text-sm text-slate-400">{subtitle}</p>}
+      {isShared && !result.claimed && (
+        <button
+          type="button"
+          onClick={onClaimShared}
+          className="neon-button mt-2 px-8 py-3 text-base"
+        >
+          Odbierz {formatMoney(result.sharedPerHeadCents ?? 0)}
+        </button>
+      )}
+      {isShared && result.claimed && (
+        <p className="text-xs text-emerald-400 mt-1">Nagroda odebrana.</p>
+      )}
+    </div>
+  );
+}
+
+// ─── Waiting slot ─────────────────────────────────────────────────────────────
 
 function WaitingSlot({
-  participant,
-  slotIndex,
-  isHost,
-  isTeams,
-  onAddBot,
-  onRemoveBot,
+  participant, slotIndex, isHost, isTeams, onAddBot, onRemoveBot,
 }: {
-  participant?: Participant;
-  slotIndex: number;
-  isHost: boolean;
-  isTeams: boolean;
-  onAddBot: () => void;
-  onRemoveBot: (id: string) => void;
+  participant?: Participant; slotIndex: number; isHost: boolean; isTeams: boolean;
+  onAddBot: () => void; onRemoveBot: (id: string) => void;
 }) {
   const team = isTeams ? teamOf(slotIndex) : null;
-  const teamBorder = team === "A" ? "border-cyan-500/40" : "border-purple-500/40";
-  const teamBg = team === "A" ? "bg-cyan-500/5" : "bg-purple-500/5";
-
+  const tBorder = team === "A" ? "border-cyan-500/40" : "border-purple-500/40";
+  const tBg = team === "A" ? "bg-cyan-500/5" : "bg-purple-500/5";
   if (participant) {
     return (
-      <div
-        className={`glass-strong rounded-xl border p-4 flex items-center gap-3 ${
-          isTeams ? `${teamBorder} ${teamBg}` : "border-cyan-500/20"
-        }`}
-      >
+      <div className={`glass-strong rounded-xl border p-4 flex items-center gap-3 ${isTeams ? `${tBorder} ${tBg}` : "border-cyan-500/20"}`}>
         <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center shrink-0">
-          {participant.isBot ? (
-            <Bot className="w-5 h-5 text-slate-400" />
-          ) : (
-            <User className="w-5 h-5 text-cyan-400" />
-          )}
+          {participant.isBot ? <Bot className="w-5 h-5 text-slate-400" /> : <User className="w-5 h-5 text-cyan-400" />}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-slate-200 truncate">{participant.name}</p>
-          {team && (
-            <p className={`text-[10px] font-bold ${team === "A" ? "text-cyan-400" : "text-purple-400"}`}>
-              Team {team}
-            </p>
-          )}
+          {team && <p className={`text-[10px] font-bold ${team === "A" ? "text-cyan-400" : "text-purple-400"}`}>Team {team}</p>}
         </div>
         {isHost && participant.isBot && (
-          <button
-            type="button"
-            onClick={() => onRemoveBot(participant.id)}
-            className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-colors"
-            title="Usuń bota"
-          >
+          <button type="button" onClick={() => onRemoveBot(participant.id)} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-colors">
             <XIcon className="w-3.5 h-3.5" />
           </button>
         )}
       </div>
     );
   }
-
   return (
-    <button
-      type="button"
-      onClick={onAddBot}
-      disabled={!isHost}
+    <button type="button" onClick={onAddBot} disabled={!isHost}
       className={`glass-strong rounded-xl border p-4 flex items-center gap-3 w-full transition-all ${
-        isTeams ? `${teamBorder} ${teamBg}` : "border-slate-700/30"
-      } ${isHost ? "hover:border-cyan-500/40 hover:bg-cyan-500/5 cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
+        isTeams ? `${tBorder} ${tBg}` : "border-slate-700/30"
+      } ${isHost ? "hover:border-cyan-500/40 cursor-pointer" : "opacity-40 cursor-not-allowed"}`}
     >
       <div className="w-9 h-9 rounded-full bg-slate-900/60 border border-dashed border-slate-600/50 flex items-center justify-center shrink-0">
         <Plus className="w-4 h-4 text-slate-500" />
       </div>
-      <div className="flex-1 min-w-0 text-left">
+      <div className="flex-1 text-left">
         <p className="text-sm font-bold text-slate-500">Wolne miejsce</p>
-        {team && (
-          <p className={`text-[10px] font-bold ${team === "A" ? "text-cyan-500/60" : "text-purple-500/60"}`}>
-            Team {team}
-          </p>
-        )}
+        {team && <p className={`text-[10px] font-bold ${team === "A" ? "text-cyan-500/60" : "text-purple-500/60"}`}>Team {team}</p>}
       </div>
-      {isHost && (
-        <span className="text-[10px] font-bold text-slate-500 px-2 py-0.5 rounded border border-slate-700/40">
-          Dodaj bota
-        </span>
-      )}
+      {isHost && <span className="text-[10px] font-bold text-slate-500 px-2 py-0.5 rounded border border-slate-700/40">Dodaj bota</span>}
     </button>
   );
 }
 
-// ─── Participant Battle Column ─────────────────────────────────────────────────
+// ─── Participant Column ───────────────────────────────────────────────────────
 
-function ParticipantColumn({
-  participant,
-  slotIndex,
-  battle,
-  isTeams,
-  isShared,
-  isWinner,
-  isTeamWinner,
-  revealedCount,
-  animStep,
-  spinning,
-  stepList,
-}: {
+interface ColProps {
   participant: Participant;
   slotIndex: number;
   battle: Battle;
   isTeams: boolean;
   isShared: boolean;
+  isLeader: boolean;
   isWinner: boolean;
   isTeamWinner: boolean;
+  isTiebreakHighlight: boolean;
+  battlePhase: BattlePhase;
   revealedCount: number;
   animStep: number;
   spinning: boolean;
   stepList: BattleStep[];
-}) {
+}
+
+function ParticipantColumn({
+  participant, slotIndex, battle, isTeams, isShared,
+  isLeader, isWinner, isTeamWinner, isTiebreakHighlight,
+  battlePhase, revealedCount, animStep, spinning, stepList,
+}: ColProps) {
   const result = battle.result!;
   const drops = result.dropsByParticipant[participant.id] ?? [];
   const revealedDrops = drops.slice(0, revealedCount);
   const currentTotal = revealedDrops.reduce((s, d) => s + d.valueCents, 0);
 
   const team = isTeams ? teamOf(slotIndex) : null;
-  const teamAccent = team === "A" ? "cyan" : team === "B" ? "purple" : "cyan";
 
-  // Winner styling: no crown/ring in shared mode
-  const showWinnerRing = !isShared && (isWinner || isTeamWinner) && battle.status === "completed";
-  const showLoserDim = !isShared && battle.status === "completed" && !isWinner && !isTeamWinner;
-
-  const currentStep = stepList[animStep];
-  const currentDrop = drops[animStep];
-  // Use effective drops for the correct mode as filler (Boost/Jester aware)
+  const safeAnimStep = animStep >= 0 ? animStep : 0;
+  const currentStep = stepList[safeAnimStep];
+  const currentDrop = drops[safeAnimStep];
   const fillerDrops = currentStep
     ? getEffectiveDrops(currentStep.caseData, currentStep.sc.openMode)
     : [];
@@ -162,38 +293,34 @@ function ParticipantColumn({
   const showReel = spinning && animStep >= 0 && animStep < drops.length && !!currentDrop && !!currentStep;
   const betweenSteps = !spinning && revealedCount > 0 && revealedCount < drops.length;
 
+  const isActualWinner = !isShared && (isWinner || isTeamWinner);
+  const isLoser = battlePhase === "done" && !isShared && !isActualWinner;
+
+  let ringClass = "";
+  if (battlePhase === "running" && isLeader && !isShared) {
+    ringClass = getLeaderRingClass(battle.mode);
+  } else if (battlePhase === "tiebreak" && isTiebreakHighlight) {
+    ringClass = "ring-2 ring-yellow-300 shadow-[0_0_24px_rgba(253,224,71,0.6)]";
+  } else if (battlePhase === "done" && isActualWinner) {
+    ringClass = getWinnerRingClass(battle.mode);
+  }
+
+  const borderCls = team === "A" ? "border-cyan-500/30" : team === "B" ? "border-purple-500/30" : "border-slate-700/30";
+
   return (
-    <div
-      className={`glass-strong rounded-2xl border flex flex-col gap-3 p-4 transition-all ${
-        team === "A"
-          ? "border-cyan-500/30"
-          : team === "B"
-          ? "border-purple-500/30"
-          : "border-slate-700/30"
-      } ${showWinnerRing ? "ring-2 ring-amber-400/60 shadow-[0_0_24px_rgba(251,191,36,0.2)]" : ""} ${showLoserDim ? "opacity-50" : ""}`}
-    >
+    <div className={`glass-strong rounded-2xl border flex flex-col gap-3 p-3 transition-all duration-500 ${borderCls} ${ringClass} ${isLoser ? "opacity-40" : ""}`}>
       {/* Header */}
       <div className="flex items-center gap-2.5">
-        <div
-          className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-            participant.isBot ? "bg-slate-800" : `bg-${teamAccent}-500/20`
-          }`}
-        >
-          {participant.isBot ? (
-            <Bot className="w-5 h-5 text-slate-400" />
-          ) : (
-            <User className={`w-5 h-5 text-${teamAccent}-400`} />
-          )}
+        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${participant.isBot ? "bg-slate-800" : team === "B" ? "bg-purple-500/20" : "bg-cyan-500/20"}`}>
+          {participant.isBot
+            ? <Bot className="w-5 h-5 text-slate-400" />
+            : <User className={`w-5 h-5 ${team === "B" ? "text-purple-400" : "text-cyan-400"}`} />}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-black text-slate-200 truncate">{participant.name}</p>
-          {team && (
-            <p className={`text-[10px] font-bold text-${teamAccent}-400`}>Team {team}</p>
-          )}
+          {team && <p className={`text-[10px] font-bold ${team === "A" ? "text-cyan-400" : "text-purple-400"}`}>Team {team}</p>}
         </div>
-        {showWinnerRing && (
-          <Crown className="w-5 h-5 text-amber-400 shrink-0" />
-        )}
+        {battlePhase === "done" && isActualWinner && <Crown className="w-5 h-5 text-amber-400 shrink-0" />}
       </div>
 
       {/* Running total */}
@@ -202,43 +329,95 @@ function ParticipantColumn({
         team === "B" ? "border-purple-500/20 bg-purple-500/5" :
         "border-slate-700/30 bg-slate-900/40"
       }`}>
-        <p className={`text-xl font-black font-mono ${
-          team === "A" ? "text-cyan-300" :
-          team === "B" ? "text-purple-300" :
-          "text-slate-200"
-        }`}>
+        <p className={`text-xl font-black font-mono ${team === "A" ? "text-cyan-300" : team === "B" ? "text-purple-300" : "text-slate-200"}`}>
           {formatMoney(currentTotal)}
         </p>
-        <p className="text-[10px] text-slate-500">
-          {revealedCount}/{drops.length} skrzynek
-        </p>
+        <p className="text-[10px] text-slate-500">{revealedCount}/{drops.length} skrzynek</p>
       </div>
 
-      {/* Reel zone */}
-      <div className="min-h-[120px]">
-        {showReel ? (
-          <BattleReelStrip
-            key={`${participant.id}-step-${animStep}`}
-            fillerDrops={fillerDrops}
-            winner={currentDrop}
-            durationMs={REEL_DURATION_MS}
-            tileSize={90}
-          />
-        ) : betweenSteps ? (
-          <div className="flex items-center justify-center h-[110px] rounded-xl border border-slate-700/30 bg-slate-950/40">
-            <p className="text-xs text-slate-600 animate-pulse">Następna skrzynka…</p>
-          </div>
-        ) : null}
-      </div>
+      {/* Vertical reel zone */}
+      {showReel ? (
+        <BattleReelStrip
+          key={`${participant.id}-step-${animStep}`}
+          fillerDrops={fillerDrops}
+          winner={currentDrop}
+          durationMs={REEL_DURATION_MS}
+        />
+      ) : betweenSteps ? (
+        <div className="flex items-center justify-center rounded-xl border border-slate-700/30 bg-slate-950/40" style={{ height: 60 }}>
+          <p className="text-xs text-slate-600 animate-pulse">Następna skrzynka…</p>
+        </div>
+      ) : null}
 
-      {/* Revealed drops */}
-      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
-        {[...revealedDrops].reverse().map((drop) => (
-          <RevealedDropCard key={drop.instanceId} drop={drop} />
-        ))}
-        {revealedDrops.length === 0 && (
-          <p className="text-[11px] text-slate-600 text-center py-2">Brak dropów</p>
-        )}
+      {/* Revealed items grid (3 cols) */}
+      {revealedDrops.length > 0 && (
+        <div className="grid grid-cols-3 gap-1.5">
+          {[...revealedDrops].reverse().map((drop) => (
+            <RevealedDropCard key={drop.instanceId} drop={drop} />
+          ))}
+        </div>
+      )}
+      {revealedDrops.length === 0 && (
+        <p className="text-[11px] text-slate-700 text-center py-2">Brak dropów</p>
+      )}
+    </div>
+  );
+}
+
+// ─── Loot Modal ───────────────────────────────────────────────────────────────
+
+function LootModal({
+  pending, mode, onKeep, onSell,
+}: {
+  pending: BattleDrop[];
+  mode: BattleMode;
+  onKeep: () => void;
+  onSell: () => void;
+}) {
+  const totalVal = pending.reduce((s, d) => s + d.valueCents, 0);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="glass-strong rounded-2xl border border-amber-400/30 w-full max-w-lg shadow-2xl p-6 space-y-5">
+        <div className="text-center">
+          <Trophy className="w-14 h-14 text-amber-400 mx-auto mb-2" />
+          <h2 className="text-2xl font-black text-slate-100">Twoje nagrody!</h2>
+          <p className="text-sm text-slate-400 mt-1">
+            {pending.length} itemów · łączna wartość {formatMoney(totalVal)}
+          </p>
+        </div>
+
+        <div className="max-h-64 overflow-y-auto space-y-1.5">
+          {pending.map((d) => {
+            const rc = rarityColors[d.rarity];
+            return (
+              <div key={d.instanceId} className={`flex items-center gap-3 rounded-lg border ${rc.border} bg-slate-900/70 px-3 py-2`}>
+                {d.image && <img src={d.image} alt="" className="w-10 h-10 rounded-md object-cover mix-blend-screen shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-bold truncate ${rc.text}`}>{d.name}</p>
+                  <p className="text-[10px] text-slate-500">{d.chanceAtDrop.toFixed(2)}% szans</p>
+                </div>
+                <span className="text-sm font-black text-slate-300 font-mono shrink-0">{formatMoney(d.valueCents)}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={onKeep}
+            className="py-3 rounded-xl border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 font-black text-sm hover:bg-cyan-500/20 transition-colors"
+          >
+            Zachowaj ({pending.length})
+          </button>
+          <button
+            type="button"
+            onClick={onSell}
+            className="py-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 font-black text-sm hover:bg-emerald-500/20 transition-colors"
+          >
+            Sprzedaj ({formatMoney(totalVal)})
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -250,45 +429,135 @@ export function BattleRoom() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const { battles, addBot, removeBot, startBattle, completeBattle, markClaimed } =
-    useBattleStore();
+  const { battles, addBot, removeBot, startBattle, completeBattle, markClaimed } = useBattleStore();
   const { addBalanceCents } = useGameStore();
 
   const battle = battles.find((b) => b.id === id);
+  const result = battle?.result ?? null;
 
-  // ── countdown ──
-  const [countdown, setCountdown] = useState<number | null>(null);
-  const countdownTimerRef = useRef<number | null>(null);
-
-  // ── animation state ──
-  // animStep: index of the step currently showing/having shown its reel (-1 = not started)
+  // ── Phase & animation state ──
+  const [battlePhase, setBattlePhase] = useState<BattlePhase>("idle");
   const [animStep, setAnimStep] = useState(-1);
   const [revealedCount, setRevealedCount] = useState(0);
   const [spinning, setSpinning] = useState(false);
+  const [tiebreakHighlightId, setTiebreakHighlightId] = useState<string | null>(null);
+  const [showLootModal, setShowLootModal] = useState(false);
   const animStarted = useRef(false);
   const animCleanupRef = useRef<(() => void) | null>(null);
 
-  // ── result ──
-  const [showResult, setShowResult] = useState(false);
+  // ── Countdown ──
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownRef = useRef<number | null>(null);
 
+  // ── Derived ──
   const isTeams = battle?.battleFormat === "teams";
   const isShared = battle?.mode === "shared";
+  const userId = battle?.participants[0]?.id ?? "user";
 
-  // Precompute step list (carries caseData + openMode per step)
-  const stepList = battle ? buildStepList(battle, mockCases) : [];
+  const stepList = useMemo(
+    () => (battle ? buildStepList(battle, mockCases) : []),
+    [battle]
+  );
   const totalSteps = stepList.length;
 
-  // ── Self-contained animation runner (fixes the React effect cleanup bug) ──
-  // We use a recursive setTimeout chain stored entirely in refs/closures.
-  // React state updates (setAnimStep, setSpinning, etc.) are one-way: they only
-  // trigger re-renders for display. Progression is driven by the closure, NOT
-  // by re-running effects when `spinning` changes.
+  // Tiebreak detection: check if tied participants existed for the winning score
+  const tiedParticipants = useMemo((): Participant[] => {
+    if (!result?.winnerId || !battle || isShared || isTeams) return [];
+    const pts = battle.participants;
+    const wid = result.winnerId;
+    const mode = battle.mode;
+    if (mode === "standard" || mode === "underdog") {
+      const wScore = result.totalValueByParticipant[wid];
+      const tied = pts.filter((p) => result.totalValueByParticipant[p.id] === wScore);
+      return tied.length > 1 ? tied : [];
+    }
+    if (mode === "terminal") {
+      const wMax = Math.max(...(result.lastGroupDropsByParticipant[wid] ?? []).map((d) => d.valueCents), 0);
+      const tied = pts.filter((p) => Math.max(...(result.lastGroupDropsByParticipant[p.id] ?? []).map((d) => d.valueCents), 0) === wMax);
+      return tied.length > 1 ? tied : [];
+    }
+    if (mode === "crazy_terminal") {
+      const wMin = Math.min(...(result.lastGroupDropsByParticipant[wid] ?? []).map((d) => d.valueCents), Infinity);
+      const tied = pts.filter((p) => Math.min(...(result.lastGroupDropsByParticipant[p.id] ?? []).map((d) => d.valueCents), Infinity) === wMin);
+      return tied.length > 1 ? tied : [];
+    }
+    return [];
+  }, [result, battle, isShared, isTeams]);
+
+  const hadTiebreak = tiedParticipants.length > 1;
+  const tiedParticipantsRef = useRef(tiedParticipants);
+  tiedParticipantsRef.current = tiedParticipants;
+
+  // User won (non-shared FFA)
+  const userWon = useMemo(() => {
+    if (!result || isShared) return false;
+    if (result.winnerId) return result.winnerId === userId;
+    if (result.teamWinnerId && isTeams) {
+      const idx = battle?.participants.findIndex((p) => p.id === userId) ?? -1;
+      return (idx < 2 ? "A" : "B") === result.teamWinnerId;
+    }
+    return false;
+  }, [result, isShared, isTeams, userId, battle?.participants]);
+
+  const userWonRef = useRef(userWon);
+  userWonRef.current = userWon;
+
+  const hadTiebreakRef = useRef(hadTiebreak);
+  hadTiebreakRef.current = hadTiebreak;
+
+  // Dynamic leader IDs (during running)
+  const currentLeaderIds = useMemo((): Set<string> => {
+    if (!result || !battle || isShared || battlePhase !== "running" || revealedCount === 0) {
+      return new Set();
+    }
+    const pts = battle.participants;
+    const scores = Object.fromEntries(
+      pts.map((p) => [
+        p.id,
+        (result.dropsByParticipant[p.id] ?? [])
+          .slice(0, revealedCount)
+          .reduce((s, d) => s + d.valueCents, 0),
+      ])
+    );
+    const vals = Object.values(scores);
+    if (battle.mode === "standard" || battle.mode === "terminal") {
+      const max = Math.max(...vals);
+      if (max === 0) return new Set();
+      return new Set(pts.filter((p) => scores[p.id] === max).map((p) => p.id));
+    }
+    if (battle.mode === "underdog" || battle.mode === "crazy_terminal") {
+      const min = Math.min(...vals);
+      return new Set(pts.filter((p) => scores[p.id] === min).map((p) => p.id));
+    }
+    return new Set();
+  }, [result, battle, isShared, battlePhase, revealedCount]);
+
+  // Winner determination for columns
+  const winnerIds = result?.winnerId ? new Set([result.winnerId]) : new Set<string>();
+  const winnerTeam = result?.teamWinnerId ?? null;
+
+  // ── Mount: if battle already completed, skip to done ──
+  useEffect(() => {
+    if (battle?.status === "completed") {
+      animStarted.current = true;
+      setBattlePhase("done");
+      const steps = buildStepList(battle, mockCases).length;
+      setRevealedCount(steps);
+      if (steps > 0) setAnimStep(steps - 1);
+      if (!battle.result?.claimed && userWonRef.current) {
+        setShowLootModal(true);
+      }
+    }
+  }, []); // eslint-disable-line
+
+  // ── Animation runner (self-contained recursive chain) ──
   useEffect(() => {
     if (battle?.status !== "in_progress" || animStarted.current) return;
     animStarted.current = true;
+    setBattlePhase("running");
 
     const battleId = battle.id;
-    const steps = totalSteps; // captured once
+    const steps = totalSteps;
     const timers: number[] = [];
     let cancelled = false;
 
@@ -301,7 +570,6 @@ export function BattleRoom() {
 
     const runStep = (step: number) => {
       if (cancelled || step >= steps) return;
-
       setAnimStep(step);
       setSpinning(true);
 
@@ -315,9 +583,15 @@ export function BattleRoom() {
           if (step + 1 < steps) {
             runStep(step + 1);
           } else {
-            // All steps done — complete and show results
             completeBattle(battleId);
-            setShowResult(true);
+            if (hadTiebreakRef.current) {
+              setBattlePhase("tiebreak");
+            } else {
+              setBattlePhase("done");
+              if (userWonRef.current) {
+                timers.push(window.setTimeout(() => setShowLootModal(true), 3000));
+              }
+            }
           }
         }, PAUSE_BETWEEN_STEPS_MS);
         timers.push(t2);
@@ -326,49 +600,69 @@ export function BattleRoom() {
     };
 
     runStep(0);
-
-    // Cleanup only on unmount (not when spinning changes — that was the bug!)
     return cleanup;
   }, [battle?.status]); // eslint-disable-line
 
-  // Ensure cleanup if component unmounts mid-animation
+  // ── Tiebreak animation ──
   useEffect(() => {
-    return () => { animCleanupRef.current?.(); };
-  }, []);
+    if (battlePhase !== "tiebreak") return;
+    const tied = tiedParticipantsRef.current;
+    if (tied.length < 2) { setBattlePhase("done"); return; }
 
-  // ── Claim handler (guarded against double-claim) ──
-  const handleClaim = (action: "keep" | "sell" | "shared") => {
-    if (!battle?.result || battle.result.claimed) {
-      navigate("/bitwy");
-      return;
-    }
+    const winnerId = result?.winnerId ?? null;
+    const timers: number[] = [];
+    const CYCLE_MS = 160;
+    const TOTAL_CYCLES = 11;
+    let count = 0;
 
-    if (action === "shared") {
-      const perHead = battle.result.sharedPerHeadCents ?? 0;
-      if (perHead > 0) addBalanceCents(perHead);
-    } else {
-      const pending = computePendingRewards(battle);
-      if (pending.length > 0) {
-        if (action === "sell") {
-          addBalanceCents(pending.reduce((s, d) => s + d.valueCents, 0));
-        } else {
-          const newItems: InventoryItem[] = pending.map((d) => ({
-            instanceId: d.instanceId,
-            dropId: d.dropId,
-            name: d.name,
-            rarity: d.rarity,
-            image: d.image,
-            valueCents: d.valueCents,
-            acquiredAt: Date.now(),
-            locked: false,
-          }));
-          useGameStore.setState((s) => ({ inventory: [...s.inventory, ...newItems] }));
-        }
+    const cycle = () => {
+      count++;
+      if (count < TOTAL_CYCLES) {
+        setTiebreakHighlightId(tied[count % tied.length].id);
+        timers.push(window.setTimeout(cycle, CYCLE_MS));
+      } else {
+        setTiebreakHighlightId(winnerId);
+        timers.push(window.setTimeout(() => {
+          setBattlePhase("done");
+          if (userWonRef.current) {
+            timers.push(window.setTimeout(() => setShowLootModal(true), 3000));
+          }
+        }, 700));
       }
-    }
+    };
 
+    setTiebreakHighlightId(tied[0].id);
+    timers.push(window.setTimeout(cycle, CYCLE_MS));
+    return () => timers.forEach(clearTimeout);
+  }, [battlePhase]); // eslint-disable-line
+
+  // Cleanup on unmount
+  useEffect(() => () => { animCleanupRef.current?.(); }, []);
+
+  // ── Claim handlers ──
+  const handleClaimShared = () => {
+    if (!battle?.result || battle.result.claimed) { navigate("/bitwy"); return; }
+    const perHead = battle.result.sharedPerHeadCents ?? 0;
+    if (perHead > 0) addBalanceCents(perHead);
     markClaimed(battle.id);
-    setShowResult(false);
+    navigate("/bitwy");
+  };
+
+  const handleClaimItems = (action: "keep" | "sell") => {
+    if (!battle?.result || battle.result.claimed) { setShowLootModal(false); return; }
+    const pending = computePendingRewards(battle);
+    if (action === "sell") {
+      addBalanceCents(pending.reduce((s, d) => s + d.valueCents, 0));
+    } else {
+      const newItems: InventoryItem[] = pending.map((d) => ({
+        instanceId: d.instanceId, dropId: d.dropId, name: d.name,
+        rarity: d.rarity, image: d.image, valueCents: d.valueCents,
+        acquiredAt: Date.now(), locked: false,
+      }));
+      useGameStore.setState((s) => ({ inventory: [...s.inventory, ...newItems] }));
+    }
+    markClaimed(battle.id);
+    setShowLootModal(false);
     navigate("/bitwy");
   };
 
@@ -382,37 +676,10 @@ export function BattleRoom() {
     );
   }
 
-  const result = battle.result;
-  const isHost = true;
-
-  const winnerIds = new Set<string>();
-  if (result?.winnerId) winnerIds.add(result.winnerId);
-  const winnerTeam = result?.teamWinnerId ?? null;
-
-  // ── Countdown start ──
-  const handleStartCountdown = () => {
-    if (battle.participants.length < battle.maxPlayers) return;
-    if (countdownTimerRef.current) return; // already counting
-    let count = COUNTDOWN_START;
-    setCountdown(count);
-    countdownTimerRef.current = window.setInterval(() => {
-      count--;
-      if (count <= 0) {
-        window.clearInterval(countdownTimerRef.current!);
-        countdownTimerRef.current = null;
-        setCountdown(null);
-        startBattle(battle.id);
-      } else {
-        setCountdown(count);
-      }
-    }, 1000);
-  };
-
-  const slots = Array.from({ length: battle.maxPlayers }, (_, i) => battle.participants[i]);
-
-  // ── WAITING ──────────────────────────────────────────────────────────────────
+  // ── WAITING ───────────────────────────────────────────────────────────────
   if (battle.status === "waiting") {
     const full = battle.participants.length === battle.maxPlayers;
+    const slots = Array.from({ length: battle.maxPlayers }, (_, i) => battle.participants[i]);
 
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
@@ -422,47 +689,28 @@ export function BattleRoom() {
           </Link>
           <Swords className="w-6 h-6 text-cyan-400" />
           <h1 className="text-xl font-black text-slate-100">Poczekalnia</h1>
-          <span className="ml-auto text-xs font-bold px-2.5 py-1 rounded-full border border-purple-400/40 bg-purple-400/5 text-purple-300">
+          <span className={`ml-auto text-xs font-bold px-2.5 py-1 rounded-full border ${MODE_BADGE_COLORS[battle.mode]}`}>
             {MODE_LABELS[battle.mode]}
           </span>
-          {isTeams && (
-            <span className="text-xs font-bold px-2.5 py-1 rounded-full border border-cyan-400/30 bg-cyan-400/5 text-cyan-300">
-              2v2
-            </span>
-          )}
+          {isTeams && <span className="text-xs font-bold px-2.5 py-1 rounded-full border border-purple-400/30 bg-purple-400/5 text-purple-300">2v2</span>}
         </div>
 
         {isTeams && (
           <div className="grid grid-cols-2 gap-4">
-            <div className="text-center">
-              <span className="text-xs font-black uppercase tracking-widest text-cyan-400 border border-cyan-500/30 px-3 py-1 rounded-full bg-cyan-500/5">
-                ⚔ Team A
-              </span>
-            </div>
-            <div className="text-center">
-              <span className="text-xs font-black uppercase tracking-widest text-purple-400 border border-purple-500/30 px-3 py-1 rounded-full bg-purple-500/5">
-                🛡 Team B
-              </span>
-            </div>
+            {(["A", "B"] as const).map((t) => (
+              <div key={t} className="text-center">
+                <span className={`text-xs font-black uppercase tracking-widest border px-3 py-1 rounded-full ${t === "A" ? "text-cyan-400 border-cyan-500/30 bg-cyan-500/5" : "text-purple-400 border-purple-500/30 bg-purple-500/5"}`}>
+                  {t === "A" ? "⚔ Team A" : "🛡 Team B"}
+                </span>
+              </div>
+            ))}
           </div>
         )}
 
-        <div className={`grid gap-3 ${
-          isTeams ? "grid-cols-2"
-          : battle.maxPlayers === 2 ? "grid-cols-2"
-          : battle.maxPlayers === 3 ? "grid-cols-3"
-          : "grid-cols-2 sm:grid-cols-4"
-        }`}>
+        <div className={`grid gap-3 ${isTeams ? "grid-cols-2" : battle.maxPlayers === 2 ? "grid-cols-2" : battle.maxPlayers === 3 ? "grid-cols-3" : "grid-cols-2 sm:grid-cols-4"}`}>
           {slots.map((p, i) => (
-            <WaitingSlot
-              key={i}
-              participant={p}
-              slotIndex={i}
-              isHost={isHost}
-              isTeams={isTeams}
-              onAddBot={() => addBot(battle.id)}
-              onRemoveBot={(pid) => removeBot(battle.id, pid)}
-            />
+            <WaitingSlot key={i} participant={p} slotIndex={i} isHost isTeams={isTeams}
+              onAddBot={() => addBot(battle.id)} onRemoveBot={(pid) => removeBot(battle.id, pid)} />
           ))}
         </div>
 
@@ -474,7 +722,7 @@ export function BattleRoom() {
               return (
                 <div key={i} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700/40 bg-slate-900/50">
                   {c?.image && <img src={c.image} alt="" className="w-6 h-5 rounded object-cover" />}
-                  <span className="text-xs font-bold text-slate-300">{c?.name ?? sc.caseId}</span>
+                  <span className="text-xs font-bold text-slate-300">{c?.name}</span>
                   <span className="text-[10px] text-slate-500">×{sc.qty} · {sc.openMode}</span>
                 </div>
               );
@@ -483,23 +731,21 @@ export function BattleRoom() {
         </div>
 
         <div className="flex items-center justify-between gap-4">
-          <p className="text-sm text-slate-500">
-            {battle.participants.length}/{battle.maxPlayers} graczy
-          </p>
+          <p className="text-sm text-slate-500">{battle.participants.length}/{battle.maxPlayers} graczy</p>
           {countdown !== null ? (
-            <div className="neon-button px-8 py-3 text-2xl font-black tabular-nums pointer-events-none">
-              {countdown}
-            </div>
+            <div className="neon-button px-8 py-3 text-2xl font-black tabular-nums pointer-events-none">{countdown}</div>
           ) : (
-            <button
-              type="button"
-              onClick={handleStartCountdown}
-              disabled={!full}
-              className="neon-button px-8 py-3 text-base disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {full
-                ? "Rozpocznij bitwę"
-                : `Czekaj na graczy (${battle.participants.length}/${battle.maxPlayers})`}
+            <button type="button" onClick={() => {
+              if (!full || countdownRef.current) return;
+              let count = COUNTDOWN_START;
+              setCountdown(count);
+              countdownRef.current = window.setInterval(() => {
+                count--;
+                if (count <= 0) { window.clearInterval(countdownRef.current!); countdownRef.current = null; setCountdown(null); startBattle(battle.id); }
+                else setCountdown(count);
+              }, 1000);
+            }} disabled={!full} className="neon-button px-8 py-3 text-base disabled:opacity-40 disabled:cursor-not-allowed">
+              {full ? "Rozpocznij bitwę" : `Czekaj na graczy (${battle.participants.length}/${battle.maxPlayers})`}
             </button>
           )}
         </div>
@@ -508,79 +754,66 @@ export function BattleRoom() {
   }
 
   // ── IN PROGRESS / COMPLETED ───────────────────────────────────────────────
-
   if (!result) {
-    return (
-      <div className="container mx-auto px-4 py-16 text-center">
-        <p className="text-slate-400 animate-pulse">Ładowanie wyników…</p>
-      </div>
-    );
+    return <div className="container mx-auto px-4 py-16 text-center"><p className="text-slate-400 animate-pulse">Ładowanie wyników…</p></div>;
   }
 
-  // Team revealed totals (for score bar)
-  const teamATotalRevealed = isTeams
-    ? [0, 1].reduce((s, i) => {
-        const p = battle.participants[i];
-        if (!p) return s;
-        return s + (result.dropsByParticipant[p.id] ?? []).slice(0, revealedCount).reduce((a, d) => a + d.valueCents, 0);
-      }, 0)
-    : 0;
-  const teamBTotalRevealed = isTeams
-    ? [2, 3].reduce((s, i) => {
-        const p = battle.participants[i];
-        if (!p) return s;
-        return s + (result.dropsByParticipant[p.id] ?? []).slice(0, revealedCount).reduce((a, d) => a + d.valueCents, 0);
-      }, 0)
-    : 0;
+  const pendingRewards = computePendingRewards(battle);
+  const colCount = battle.participants.length;
+  const gridCls = colCount <= 2 ? "grid-cols-2" : colCount === 3 ? "grid-cols-3" : "grid-cols-2 xl:grid-cols-4";
 
-  const participantOrder = battle.participants;
+  // Teams score bar
+  const teamTotals = isTeams ? [0, 1].map((teamIdx) =>
+    [0, 1].reduce((s, offset) => {
+      const p = battle.participants[teamIdx * 2 + offset];
+      if (!p) return s;
+      return s + (result.dropsByParticipant[p.id] ?? []).slice(0, revealedCount).reduce((a, d) => a + d.valueCents, 0);
+    }, 0)
+  ) : [0, 0];
 
   return (
-    <div className="container mx-auto px-4 py-6 max-w-5xl space-y-5">
-      {/* Header */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Link to="/bitwy" className="p-2 rounded-lg text-slate-400 hover:text-cyan-300 transition-colors">
+    <div className="container mx-auto px-4 py-6 max-w-7xl space-y-5">
+      {/* Back + top bar */}
+      <div className="flex items-center gap-3">
+        <Link to="/bitwy" className="p-2 rounded-lg text-slate-400 hover:text-cyan-300 transition-colors shrink-0">
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <Swords className="w-6 h-6 text-cyan-400" />
-        <h1 className="text-xl font-black text-slate-100">
-          {battle.status === "in_progress" ? "Bitwa w toku" : "Bitwa zakończona"}
-        </h1>
-        <span className="text-xs font-bold px-2.5 py-1 rounded-full border border-purple-400/40 bg-purple-400/5 text-purple-300">
-          {MODE_LABELS[battle.mode]}
-        </span>
-        {isTeams && (
-          <span className="text-xs font-bold px-2.5 py-1 rounded-full border border-cyan-400/30 bg-cyan-400/5 text-cyan-300">2v2</span>
-        )}
-        <span className="ml-auto text-xs text-slate-500 font-mono">
-          {Math.min(revealedCount, totalSteps)}/{totalSteps} skrzynek
+        <div className="flex-1 min-w-0">
+          <TopBar battle={battle} />
+        </div>
+        <span className="text-xs text-slate-500 font-mono shrink-0">
+          {Math.min(revealedCount, totalSteps)}/{totalSteps}
         </span>
       </div>
+
+      {/* Tiebreak banner */}
+      {battlePhase === "tiebreak" && (
+        <TiebreakBanner names={tiedParticipants.map((p) => p.name)} />
+      )}
+
+      {/* Winner banner */}
+      {battlePhase === "done" && (
+        <WinnerBanner battle={battle} result={result} onClaimShared={handleClaimShared} />
+      )}
 
       {/* Teams score bar */}
       {isTeams && (
         <div className="glass-strong rounded-xl border border-slate-700/30 p-4 flex items-center gap-4">
           <div className="flex-1 text-center">
             <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 mb-0.5">⚔ Team A</p>
-            <p className="text-2xl font-black font-mono text-cyan-300">{formatMoney(teamATotalRevealed)}</p>
+            <p className="text-2xl font-black font-mono text-cyan-300">{formatMoney(teamTotals[0])}</p>
           </div>
           <Shield className="w-6 h-6 text-slate-600" />
           <div className="flex-1 text-center">
             <p className="text-[10px] font-bold uppercase tracking-wider text-purple-400 mb-0.5">🛡 Team B</p>
-            <p className="text-2xl font-black font-mono text-purple-300">{formatMoney(teamBTotalRevealed)}</p>
+            <p className="text-2xl font-black font-mono text-purple-300">{formatMoney(teamTotals[1])}</p>
           </div>
         </div>
       )}
 
       {/* Participant columns */}
-      <div
-        className={`grid gap-4 ${
-          participantOrder.length <= 2 ? "grid-cols-2"
-          : participantOrder.length === 3 ? "grid-cols-3"
-          : "grid-cols-2 lg:grid-cols-4"
-        }`}
-      >
-        {participantOrder.map((p, idx) => (
+      <div className={`grid gap-4 ${gridCls}`}>
+        {battle.participants.map((p, idx) => (
           <ParticipantColumn
             key={p.id}
             participant={p}
@@ -588,8 +821,11 @@ export function BattleRoom() {
             battle={battle}
             isTeams={isTeams}
             isShared={isShared}
+            isLeader={currentLeaderIds.has(p.id)}
             isWinner={winnerIds.has(p.id)}
             isTeamWinner={winnerTeam != null ? teamOf(idx) === winnerTeam : false}
+            isTiebreakHighlight={tiebreakHighlightId === p.id}
+            battlePhase={battlePhase}
             revealedCount={revealedCount}
             animStep={animStep}
             spinning={spinning}
@@ -598,118 +834,17 @@ export function BattleRoom() {
         ))}
       </div>
 
-      {/* Result modal */}
-      {showResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="glass-strong rounded-2xl border border-cyan-500/30 w-full max-w-md shadow-2xl p-6 space-y-5">
-            <div className="text-center space-y-1">
-              <Trophy className="w-10 h-10 text-amber-400 mx-auto" />
-              <h2 className="text-2xl font-black text-slate-100">
-                {isShared
-                  ? "Wyniki bitwy"
-                  : winnerTeam
-                  ? `Team ${winnerTeam} wygrywa!`
-                  : result.winnerId
-                  ? `${battle.participants.find((p) => p.id === result.winnerId)?.name ?? "Gracz"} wygrywa!`
-                  : "Koniec bitwy"}
-              </h2>
-            </div>
+      {/* Confetti */}
+      {battlePhase === "done" && userWon && !isShared && <ConfettiEffect />}
 
-            {isShared ? (
-              <div className="space-y-3">
-                <div className="rounded-xl border border-slate-700/30 bg-slate-950/50 p-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-400">Pula całkowita</span>
-                    <span className="font-black text-slate-200 font-mono">
-                      {formatMoney(
-                        Object.values(result.totalValueByParticipant).reduce((s, v) => s + v, 0)
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-sm border-t border-slate-700/30 pt-2">
-                    <span className="text-slate-400">Na głowę</span>
-                    <span className="font-black text-emerald-400 font-mono text-lg">
-                      {formatMoney(result.sharedPerHeadCents ?? 0)}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleClaim("shared")}
-                  className="neon-button w-full h-12 text-base"
-                >
-                  Odbierz {formatMoney(result.sharedPerHeadCents ?? 0)}
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {(() => {
-                  const pending = computePendingRewards(battle);
-                  const userWon = pending.length > 0;
-                  const totalVal = pending.reduce((s, d) => s + d.valueCents, 0);
-                  return (
-                    <>
-                      {userWon ? (
-                        <div className="space-y-1.5 max-h-52 overflow-y-auto">
-                          <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                            Twoje nagrody ({pending.length} itemów · {formatMoney(totalVal)})
-                          </p>
-                          {pending.slice(0, 12).map((d) => {
-                            const rc = rarityColors[d.rarity];
-                            return (
-                              <div key={d.instanceId} className={`flex items-center gap-2 rounded-lg border ${rc.border} bg-slate-900/60 px-2.5 py-1.5`}>
-                                {d.image && <img src={d.image} alt="" className="w-7 h-7 rounded object-cover mix-blend-screen" />}
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-xs font-bold truncate ${rc.text}`}>{d.name}</p>
-                                </div>
-                                <span className="text-xs font-black text-slate-300 font-mono">{formatMoney(d.valueCents)}</span>
-                              </div>
-                            );
-                          })}
-                          {pending.length > 12 && (
-                            <p className="text-xs text-slate-500 text-center">…i {pending.length - 12} więcej</p>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="rounded-xl border border-slate-700/30 bg-slate-950/50 p-6 text-center">
-                          <p className="text-slate-400 text-sm">Nie wygrałeś tej bitwy.</p>
-                        </div>
-                      )}
-                      <div className="grid grid-cols-2 gap-3">
-                        {userWon ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleClaim("keep")}
-                              className="py-3 rounded-xl border border-cyan-500/40 bg-cyan-500/10 text-cyan-300 font-bold text-sm hover:bg-cyan-500/20 transition-colors"
-                            >
-                              Zachowaj ({pending.length})
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleClaim("sell")}
-                              className="py-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 font-bold text-sm hover:bg-emerald-500/20 transition-colors"
-                            >
-                              Sprzedaj ({formatMoney(totalVal)})
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleClaim("keep")}
-                            className="col-span-2 py-3 rounded-xl border border-slate-700/40 bg-slate-900/50 text-slate-400 font-bold text-sm hover:bg-slate-800/60 transition-colors"
-                          >
-                            Zamknij
-                          </button>
-                        )}
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-        </div>
+      {/* Loot modal (delayed, non-shared winner only) */}
+      {showLootModal && !isShared && pendingRewards.length > 0 && (
+        <LootModal
+          pending={pendingRewards}
+          mode={battle.mode}
+          onKeep={() => handleClaimItems("keep")}
+          onSell={() => handleClaimItems("sell")}
+        />
       )}
     </div>
   );
