@@ -48,16 +48,19 @@ function parseMultiplier(raw: string): number {
   return Math.max(0.01, parseFloat(raw.replace(",", ".")) || 0);
 }
 
-/** Normalize weights to sum to exactly 10000, preserving relative ratios. */
+/** Normalize weights to sum to exactly 10000, preserving relative ratios.
+ *  Every drop is guaranteed weight >= 1. */
 function normalizeWeights(drops: Drop[]): Drop[] {
   if (drops.length === 0) return drops;
   const sum = drops.reduce((s, d) => s + d.weight, 0);
   if (sum <= 0) return drops;
   const TARGET = 10000;
-  const scaled = drops.map((d) => Math.round((d.weight / sum) * TARGET));
-  const scaledSum = scaled.reduce((s, w) => s + w, 0);
-  const diff = TARGET - scaledSum;
-  // Adjust the drop with the largest original weight to absorb rounding error
+  // Step 1: scale + round, then clamp each to at least 1
+  const scaled = drops.map((d) => Math.max(1, Math.round((d.weight / sum) * TARGET)));
+  // Step 2: recompute actual sum after clamping and find the remainder
+  const clampedSum = scaled.reduce((s, w) => s + w, 0);
+  const diff = TARGET - clampedSum;
+  // Step 3: apply remainder to the drop with the largest original weight
   const maxIdx = drops.reduce(
     (best, d, i) => (d.weight > drops[best].weight ? i : best),
     0
