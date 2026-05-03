@@ -3,6 +3,7 @@ import { useGameStore } from "../store/useGameStore";
 import { RotateCcw, PackageOpen, Backpack, MousePointerClick, Gift, Gamepad2, Swords, Wrench } from "lucide-react";
 import { BalancePill } from "./BalancePill";
 import { Profile } from "./Profile";
+import { DebugButton } from "./DebugPanel";
 
 export function Header() {
   const { balanceCents, reset } = useGameStore();
@@ -55,6 +56,7 @@ export function Header() {
         <div className="flex items-center gap-3">
           <BalancePill balanceCents={balanceCents} />
           <Profile />
+          <DebugButton />
           <Link
             to="/edytor-skrzynek"
             title="Edytor skrzynek"

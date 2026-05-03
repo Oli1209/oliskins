@@ -1,6 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { Header } from "./components/Header";
-import { DebugPanel } from "./components/DebugPanel";
 import { Start } from "./pages/Start";
 import { Skrzynki } from "./pages/Skrzynki";
 import { Ekwipunek } from "./pages/Ekwipunek";
@@ -59,7 +58,6 @@ function App() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>
-        <DebugPanel />
       </div>
     </Router>
   );
