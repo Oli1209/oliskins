@@ -4,6 +4,7 @@ import {
   ArrowLeft, Bot, User, Crown, Swords, Shield, Trophy,
   Plus, X as XIcon, TrendingDown, Users, SkipForward, Rewind,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useGameStore } from "../store/useGameStore";
 import { useBattleStore } from "../store/useBattleStore";
 import { computePendingRewards, buildStepList } from "../lib/battleRng";
@@ -39,7 +40,6 @@ const MODE_BADGE_COLORS: Record<BattleMode, string> = {
 };
 
 function getLeaderRingClass(mode: BattleMode): string {
-  // Terminal/CrazyTerminal rings are only shown at last step — same emerald class used for both
   switch (mode) {
     case "standard":      return "ring-2 ring-cyan-400 ring-leader-cyan";
     case "underdog":      return "ring-2 ring-amber-400 ring-leader-amber";
@@ -161,11 +161,10 @@ function TiebreakBanner({ names }: { names: string[] }) {
 // ─── Winner banner ────────────────────────────────────────────────────────────
 
 function WinnerBanner({
-  battle, result, onClaimShared,
+  battle, result,
 }: {
   battle: Battle;
-  result: { winnerId: string|null; teamWinnerId?: "A"|"B"|null; sharedPerHeadCents?: number; claimed: boolean };
-  onClaimShared: () => void;
+  result: NonNullable<Battle["result"]>;
 }) {
   const isShared = battle.mode === "shared";
   const isTeams = battle.battleFormat === "teams";
@@ -176,8 +175,11 @@ function WinnerBanner({
   let borderCls = "border-slate-600/40";
 
   if (isShared) {
+    const claimed = result.rewardStatus === "shared_claimed";
     title = "Shared — Równa wypłata";
-    subtitle = `Każdy otrzymuje ${formatMoney(result.sharedPerHeadCents ?? 0)} gotówki`;
+    subtitle = claimed
+      ? `Odebrano ${formatMoney(result.sharedPerHeadCents ?? 0)} gotówki.`
+      : `Każdy otrzymuje ${formatMoney(result.sharedPerHeadCents ?? 0)} gotówki`;
     borderCls = "border-emerald-500/40";
   } else if (isTeams && result.teamWinnerId) {
     title = `Team ${result.teamWinnerId} wygrywa!`;
@@ -194,12 +196,6 @@ function WinnerBanner({
       <Trophy className="w-10 h-10 text-amber-400 mx-auto" />
       <h2 className="text-2xl font-black text-slate-100">{title}</h2>
       {subtitle && <p className="text-sm text-slate-400">{subtitle}</p>}
-      {isShared && !result.claimed && (
-        <button type="button" onClick={onClaimShared} className="neon-button mt-2 px-8 py-3 text-base">
-          Odbierz {formatMoney(result.sharedPerHeadCents ?? 0)}
-        </button>
-      )}
-      {isShared && result.claimed && <p className="text-xs text-emerald-400 mt-1">Nagroda odebrana.</p>}
     </div>
   );
 }
@@ -288,7 +284,6 @@ function ParticipantColumn({
   const showReel = spinning && animStep >= 0 && animStep < drops.length && !!currentDrop && !!currentStep;
   const betweenSteps = !spinning && revealedCount > 0 && revealedCount < drops.length;
 
-  // "Decyduje ostatnia skrzynka" hint for terminal modes while not yet at last step
   const showTerminalHint = (mode === "terminal" || mode === "crazy_terminal")
     && battlePhase === "running" && revealedCount < totalSteps;
 
@@ -312,14 +307,12 @@ function ParticipantColumn({
 
   return (
     <div className={`glass-strong relative rounded-2xl border flex flex-col gap-3 p-3 transition-all duration-500 ${borderCls} ${ringClass}`}>
-      {/* Loser red-X overlay */}
       {isLoser && (
         <div className="absolute inset-0 rounded-2xl bg-red-950/35 z-10 pointer-events-none flex items-center justify-center">
           <XIcon className="w-20 h-20 text-red-500/45" strokeWidth={1.5} />
         </div>
       )}
 
-      {/* Header */}
       <div className="flex items-center gap-2.5">
         <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
           participant.isBot ? "bg-slate-800" : team === "B" ? "bg-purple-500/20" : "bg-cyan-500/20"
@@ -335,7 +328,6 @@ function ParticipantColumn({
         {battlePhase === "done" && isActualWinner && <Crown className="w-5 h-5 text-amber-400 shrink-0" />}
       </div>
 
-      {/* Running total */}
       <div className={`text-center py-2 rounded-xl border ${
         team === "A" ? "border-cyan-500/20 bg-cyan-500/5" :
         team === "B" ? "border-purple-500/20 bg-purple-500/5" :
@@ -350,7 +342,6 @@ function ParticipantColumn({
         )}
       </div>
 
-      {/* Vertical reel */}
       {showReel ? (
         <BattleReelStrip
           key={`${participant.id}-step-${animStep}`}
@@ -364,7 +355,6 @@ function ParticipantColumn({
         </div>
       ) : null}
 
-      {/* Revealed items (3-col) */}
       {revealedDrops.length > 0 && (
         <div className="grid grid-cols-3 gap-1.5">
           {[...revealedDrops].reverse().map((drop) => (
@@ -381,15 +371,39 @@ function ParticipantColumn({
 
 // ─── Loot Modal ───────────────────────────────────────────────────────────────
 
-function LootModal({ pending, onKeep, onSell }: { pending: BattleDrop[]; onKeep: () => void; onSell: () => void; }) {
+function LootModal({
+  pending,
+  onKeep,
+  onSell,
+  onClose,
+}: {
+  pending: BattleDrop[];
+  onKeep: () => void;
+  onSell: () => void;
+  /** Called when user dismisses modal without choosing — triggers auto-keep */
+  onClose: () => void;
+}) {
   const totalVal = pending.reduce((s, d) => s + d.valueCents, 0);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
       <div className="glass-strong rounded-2xl border border-amber-400/30 w-full max-w-lg shadow-2xl p-6 space-y-5">
-        <div className="text-center">
-          <Trophy className="w-14 h-14 text-amber-400 mx-auto mb-2" />
-          <h2 className="text-2xl font-black text-slate-100">Twoje nagrody!</h2>
-          <p className="text-sm text-slate-400 mt-1">{pending.length} itemów · łączna wartość {formatMoney(totalVal)}</p>
+        <div className="flex items-start justify-between">
+          <div className="flex-1 text-center">
+            <Trophy className="w-14 h-14 text-amber-400 mx-auto mb-2" />
+            <h2 className="text-2xl font-black text-slate-100">Twoje nagrody!</h2>
+            <p className="text-sm text-slate-400 mt-1">{pending.length} itemów · łączna wartość {formatMoney(totalVal)}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800/60 transition-colors shrink-0 mt-1"
+            title="Zamknij (zachowaj automatycznie)"
+          >
+            <XIcon className="w-4 h-4" />
+          </button>
         </div>
         <div className="max-h-64 overflow-y-auto space-y-1.5">
           {pending.map((d) => {
@@ -413,9 +427,10 @@ function LootModal({ pending, onKeep, onSell }: { pending: BattleDrop[]; onKeep:
           </button>
           <button type="button" onClick={onSell}
             className="py-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 font-black text-sm hover:bg-emerald-500/20 transition-colors">
-            Sprzedaj ({formatMoney(totalVal)})
+            Sprzedaj wszystko ({formatMoney(totalVal)})
           </button>
         </div>
+        <p className="text-[10px] text-slate-600 text-center">Zamknięcie okna automatycznie zachowa przedmioty.</p>
       </div>
     </div>
   );
@@ -427,7 +442,7 @@ export function BattleRoom() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const { battles, addBot, removeBot, startBattle, completeBattle, markClaimed } = useBattleStore();
+  const { battles, addBot, removeBot, startBattle, completeBattle, claimReward, deleteBattle } = useBattleStore();
   const { addBalanceCents } = useGameStore();
 
   const battle = battles.find((b) => b.id === id);
@@ -505,7 +520,6 @@ export function BattleRoom() {
   hadTiebreakRef.current = hadTiebreak;
 
   // ── Dynamic leader IDs ─────────────────────────────────────────────
-  // Terminal/CrazyTerminal: ONLY show ring after the LAST step is revealed
   const currentLeaderIds = useMemo((): Set<string> => {
     if (!result || !battle || isShared || battlePhase !== "running" || revealedCount === 0) {
       return new Set();
@@ -513,10 +527,8 @@ export function BattleRoom() {
     const pts = battle.participants;
     const mode = battle.mode;
 
-    // Terminal / Crazy Terminal — ring only after last step
     if (mode === "terminal" || mode === "crazy_terminal") {
-      if (revealedCount < totalSteps) return new Set(); // no ring yet
-      // Show based on the single last-step drop per participant
+      if (revealedCount < totalSteps) return new Set();
       const lastDropVal = Object.fromEntries(
         pts.map((p) => {
           const allDrops = result.dropsByParticipant[p.id] ?? [];
@@ -534,7 +546,6 @@ export function BattleRoom() {
       }
     }
 
-    // Standard / Underdog — running total
     const scores = Object.fromEntries(
       pts.map((p) => [p.id, (result.dropsByParticipant[p.id] ?? []).slice(0, revealedCount).reduce((s, d) => s + d.valueCents, 0)])
     );
@@ -561,7 +572,7 @@ export function BattleRoom() {
   useEffect(() => {
     if (battle?.status !== "waiting") return;
     if (participantCount < battleMaxPlayers) return;
-    if (countdownRef.current !== null) return; // already running
+    if (countdownRef.current !== null) return;
 
     let c = COUNTDOWN_START;
     setCountdown(c);
@@ -586,9 +597,37 @@ export function BattleRoom() {
       const steps = buildStepList(battle, useCaseStore.getState().paidCases).length;
       setRevealedCount(steps);
       if (steps > 0) setAnimStep(steps - 1);
-      if (!battle.result?.claimed && userWonRef.current) setShowLootModal(true);
+      // Show loot modal only if winner and not yet claimed
+      if (battle.result?.rewardStatus === "unclaimed" && userWonRef.current) {
+        setShowLootModal(true);
+      }
     }
   }, []); // eslint-disable-line
+
+  // ── Shared auto-claim on completion ─────────────────────────────
+  // Fires exactly once when battlePhase transitions to "done" for shared mode.
+  const sharedClaimFiredRef = useRef(false);
+  useEffect(() => {
+    if (battlePhase !== "done") return;
+    if (!isShared) return;
+    if (!battle?.result) return;
+    if (battle.result.rewardStatus !== "unclaimed") return;
+    if (sharedClaimFiredRef.current) return;
+    sharedClaimFiredRef.current = true;
+
+    const perHead = battle.result.sharedPerHeadCents ?? 0;
+    if (perHead > 0) addBalanceCents(perHead);
+    claimReward(battle.id, "shared_claimed");
+    toast.success(`Odebrano: ${formatMoney(perHead)} (Shared)`, {
+      duration: 4000,
+    });
+    // Remove and navigate after a moment so the winner banner is briefly visible
+    const t = window.setTimeout(() => {
+      deleteBattle(battle.id);
+      navigate("/bitwy");
+    }, 2000);
+    return () => window.clearTimeout(t);
+  }, [battlePhase]); // eslint-disable-line
 
   // ── Animation runner ─────────────────────────────────────────────
   useEffect(() => {
@@ -677,19 +716,26 @@ export function BattleRoom() {
   }, []);
 
   // ── Claim handlers ───────────────────────────────────────────────
-  const handleClaimShared = () => {
-    if (!battle?.result || battle.result.claimed) { navigate("/bitwy"); return; }
-    const perHead = battle.result.sharedPerHeadCents ?? 0;
-    if (perHead > 0) addBalanceCents(perHead);
-    markClaimed(battle.id);
-    navigate("/bitwy");
-  };
 
+  /**
+   * Apply winner-takes-all reward and remove the battle.
+   * Idempotency is enforced by claimReward in the store.
+   */
   const handleClaimItems = (action: "keep" | "sell") => {
-    if (!battle?.result || battle.result.claimed) { setShowLootModal(false); return; }
+    if (!battle?.result) return;
+    if (battle.result.rewardStatus !== "unclaimed") {
+      // Already claimed — just close and navigate
+      setShowLootModal(false);
+      navigate("/bitwy");
+      return;
+    }
+
     const pending = computePendingRewards(battle);
+
     if (action === "sell") {
-      addBalanceCents(pending.reduce((s, d) => s + d.valueCents, 0));
+      const totalVal = pending.reduce((s, d) => s + d.valueCents, 0);
+      addBalanceCents(totalVal);
+      claimReward(battle.id, "sold");
     } else {
       const newItems: InventoryItem[] = pending.map((d) => ({
         instanceId: d.instanceId, dropId: d.dropId, name: d.name,
@@ -697,10 +743,25 @@ export function BattleRoom() {
         acquiredAt: Date.now(), locked: false,
       }));
       useGameStore.setState((s) => ({ inventory: [...s.inventory, ...newItems] }));
+      claimReward(battle.id, "kept");
     }
-    markClaimed(battle.id);
+
     setShowLootModal(false);
+    deleteBattle(battle.id);
     navigate("/bitwy");
+  };
+
+  /** Auto-keep: triggered when user closes the modal without choosing */
+  const handleModalClose = () => {
+    if (!battle?.result) { setShowLootModal(false); return; }
+    // Only auto-keep if still unclaimed (prevents double-claim if user
+    // somehow triggers close after choosing)
+    if (battle.result.rewardStatus === "unclaimed") {
+      handleClaimItems("keep");
+    } else {
+      setShowLootModal(false);
+      navigate("/bitwy");
+    }
   };
 
   // ── Not found ────────────────────────────────────────────────────
@@ -720,10 +781,8 @@ export function BattleRoom() {
 
     return (
       <div className="container mx-auto px-4 py-8 max-w-4xl space-y-6">
-        {/* Big countdown overlay — covers everything while counting */}
         {countdown !== null && <CountdownOverlay value={countdown} />}
 
-        {/* Header — hide back while counting */}
         <div className="flex items-center gap-3">
           {countdown === null ? (
             <Link to="/bitwy" className="p-2 rounded-lg text-slate-400 hover:text-cyan-300 transition-colors">
@@ -775,7 +834,6 @@ export function BattleRoom() {
           </div>
         </div>
 
-        {/* Status line — no manual start button, auto-start handles it */}
         <div className="text-center">
           {full ? (
             <p className="text-sm text-emerald-400 font-bold animate-pulse">Wszyscy gotowi — startowanie…</p>
@@ -804,12 +862,10 @@ export function BattleRoom() {
     }, 0)
   ) : [0, 0];
 
-  // Block back button during active battle
   const backLocked = battlePhase === "running" || battlePhase === "tiebreak";
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl space-y-5">
-      {/* Back + top bar */}
       <div className="flex items-center gap-3">
         {backLocked
           ? <div className="w-9 shrink-0" />
@@ -823,13 +879,10 @@ export function BattleRoom() {
         <span className="text-xs text-slate-500 font-mono shrink-0">{Math.min(revealedCount, totalSteps)}/{totalSteps}</span>
       </div>
 
-      {/* Tiebreak banner */}
       {battlePhase === "tiebreak" && <TiebreakBanner names={tiedParticipants.map((p) => p.name)} />}
 
-      {/* Winner banner */}
-      {battlePhase === "done" && <WinnerBanner battle={battle} result={result} onClaimShared={handleClaimShared} />}
+      {battlePhase === "done" && <WinnerBanner battle={battle} result={result} />}
 
-      {/* Teams score bar */}
       {isTeams && (
         <div className="glass-strong rounded-xl border border-slate-700/30 p-4 flex items-center gap-4">
           <div className="flex-1 text-center">
@@ -844,7 +897,6 @@ export function BattleRoom() {
         </div>
       )}
 
-      {/* Participant columns */}
       <div className={`grid gap-4 ${gridCls}`}>
         {battle.participants.map((p, idx) => (
           <ParticipantColumn
@@ -868,12 +920,15 @@ export function BattleRoom() {
         ))}
       </div>
 
-      {/* Confetti for winner */}
       {battlePhase === "done" && userWon && !isShared && <ConfettiEffect />}
 
-      {/* Loot modal (delayed) */}
       {showLootModal && !isShared && pendingRewards.length > 0 && (
-        <LootModal pending={pendingRewards} onKeep={() => handleClaimItems("keep")} onSell={() => handleClaimItems("sell")} />
+        <LootModal
+          pending={pendingRewards}
+          onKeep={() => handleClaimItems("keep")}
+          onSell={() => handleClaimItems("sell")}
+          onClose={handleModalClose}
+        />
       )}
     </div>
   );

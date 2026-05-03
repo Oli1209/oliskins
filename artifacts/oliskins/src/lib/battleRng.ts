@@ -108,7 +108,6 @@ export function precomputeBattleResult(
         const pickable = effectiveDrops.map((d) => ({ ...d, weight: d.effectiveWeight }));
         const drop = pickWeightedSeeded(pickable, rng);
 
-        // Find the chancePct for the selected drop
         const droppedEffective = effectiveDrops.find((ed) => ed.id === drop.id);
         const chanceAtDrop = droppedEffective?.chancePct ?? 0;
 
@@ -140,6 +139,9 @@ export function precomputeBattleResult(
     lastGroupDropsByParticipant[p.id] = drops.filter((d) => d.groupIndex === lastGroupIndex);
   }
 
+  // Full loot pool = all drops from every participant (winner takes all)
+  const fullLootPool: BattleDrop[] = Object.values(dropsByParticipant).flat();
+
   // ── Shared ─────────────────────────────────────────────────────────────────
   if (battle.mode === "shared") {
     const potTotal = Object.values(totalValueByParticipant).reduce((s, v) => s + v, 0);
@@ -149,7 +151,8 @@ export function precomputeBattleResult(
       lastGroupDropsByParticipant,
       winnerId: null,
       sharedPerHeadCents: Math.floor(potTotal / battle.maxPlayers),
-      claimed: false,
+      rewardItems: [],
+      rewardStatus: "unclaimed",
     };
   }
 
@@ -193,7 +196,8 @@ export function precomputeBattleResult(
       lastGroupDropsByParticipant,
       winnerId: null,
       teamWinnerId,
-      claimed: false,
+      rewardItems: fullLootPool,
+      rewardStatus: "unclaimed",
     };
   }
 
@@ -228,33 +232,34 @@ export function precomputeBattleResult(
     totalValueByParticipant,
     lastGroupDropsByParticipant,
     winnerId,
-    claimed: false,
+    rewardItems: fullLootPool,
+    rewardStatus: "unclaimed",
   };
 }
 
 // ─── Pending rewards for the real user ───────────────────────────────────────
 
+/**
+ * Returns the reward items the real user (first participant) is eligible to
+ * claim. Empty if already claimed, not the winner, or shared mode.
+ */
 export function computePendingRewards(battle: Battle): BattleDrop[] {
   const result = battle.result;
-  if (!result || result.claimed) return [];
+  if (!result || result.rewardStatus !== "unclaimed") return [];
+
   const userId = battle.participants[0]?.id;
   if (!userId) return [];
 
   if (battle.mode === "shared") return [];
 
   if (battle.battleFormat === "teams" && result.teamWinnerId != null) {
-    const pts = battle.participants;
-    const userIdx = pts.findIndex((p) => p.id === userId);
+    const userIdx = battle.participants.findIndex((p) => p.id === userId);
     const userTeam = userIdx < 2 ? "A" : "B";
-    if (userTeam === result.teamWinnerId) {
-      return Object.values(result.dropsByParticipant).flat();
-    }
+    if (userTeam === result.teamWinnerId) return result.rewardItems;
     return [];
   }
 
-  if (result.winnerId === userId) {
-    return Object.values(result.dropsByParticipant).flat();
-  }
+  if (result.winnerId === userId) return result.rewardItems;
 
   return [];
 }

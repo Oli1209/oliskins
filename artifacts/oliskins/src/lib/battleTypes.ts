@@ -12,6 +12,8 @@ export type BattleFormat = "ffa" | "teams";
 
 export type BattleStatus = "waiting" | "in_progress" | "completed";
 
+export type RewardStatus = "unclaimed" | "kept" | "sold" | "shared_claimed";
+
 export interface SelectedCase {
   caseId: string;
   qty: number;
@@ -51,7 +53,13 @@ export interface BattleResult {
   teamWinnerId?: "A" | "B" | null;
   /** Only set when mode = 'shared': cash per head in cents */
   sharedPerHeadCents?: number;
-  claimed: boolean;
+  /**
+   * Full loot pool the winner receives (all drops from all participants).
+   * Empty for shared mode.
+   */
+  rewardItems: BattleDrop[];
+  /** Reward claim status — guards against duplicate claims */
+  rewardStatus: RewardStatus;
 }
 
 export interface Battle {

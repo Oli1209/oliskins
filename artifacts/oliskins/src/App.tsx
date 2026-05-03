@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { Toaster } from "sonner";
 import { Header } from "./components/Header";
 import { Start } from "./pages/Start";
 import { Skrzynki } from "./pages/Skrzynki";
@@ -33,6 +34,7 @@ function App() {
   return (
     <Router basename={basename}>
       <div className="min-h-screen bg-background text-foreground flex flex-col">
+        <Toaster position="bottom-right" richColors />
         <Header />
         <main className="flex-1">
           <Routes>

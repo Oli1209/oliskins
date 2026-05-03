@@ -355,9 +355,12 @@ export function Bitwy() {
           </h2>
 
           {(() => {
-            // Auto-hide completed + claimed battles
+            // Show waiting + in_progress always.
+            // Show completed only if reward is still unclaimed (so user can go claim).
+            // Claimed/sold/shared_claimed battles are deleted from the store on claim,
+            // so this filter is mainly a safety net.
             const visible = [...battles].filter(
-              (b) => !(b.status === "completed" && b.result?.claimed === true)
+              (b) => !(b.status === "completed" && b.result?.rewardStatus !== "unclaimed")
             ).reverse();
             return visible.length === 0 ? (
             <div className="glass-strong rounded-2xl border border-cyan-500/10 p-10 text-center">

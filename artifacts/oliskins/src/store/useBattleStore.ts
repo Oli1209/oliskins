@@ -4,7 +4,9 @@ import type {
   Battle,
   BattleFormat,
   BattleMode,
+  BattleResult,
   Participant,
+  RewardStatus,
   SelectedCase,
 } from "../lib/battleTypes";
 import { BOT_NAMES } from "../lib/battleTypes";
@@ -35,7 +37,8 @@ interface BattleStoreState {
   deleteBattle: (battleId: string) => void;
   startBattle: (battleId: string) => void;
   completeBattle: (battleId: string) => void;
-  markClaimed: (battleId: string) => void;
+  /** Mark a battle's reward as claimed. Does NOT delete the battle. */
+  claimReward: (battleId: string, status: Exclude<RewardStatus, "unclaimed">) => void;
 }
 
 export const useBattleStore = create<BattleStoreState>()(
@@ -118,18 +121,43 @@ export const useBattleStore = create<BattleStoreState>()(
         }));
       },
 
-      markClaimed: (battleId) => {
+      claimReward: (battleId, status) => {
         set((s) => ({
           battles: s.battles.map((b) => {
             if (b.id !== battleId || !b.result) return b;
-            return { ...b, result: { ...b.result, claimed: true } };
+            // Idempotency guard: only allow claiming if currently unclaimed
+            if (b.result.rewardStatus !== "unclaimed") return b;
+            return {
+              ...b,
+              result: { ...b.result, rewardStatus: status } as BattleResult,
+            };
           }),
         }));
       },
     }),
     {
       name: "oliskins_battles_v2",
-      version: 1,
+      version: 2,
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as { battles?: Battle[] };
+        if (version < 2) {
+          // Migrate old `claimed: boolean` to new `rewardStatus` + `rewardItems`
+          state.battles = (state.battles ?? []).map((b) => {
+            if (!b.result) return b;
+            const oldResult = b.result as BattleResult & { claimed?: boolean };
+            const wasClaimed = oldResult.claimed === true;
+            return {
+              ...b,
+              result: {
+                ...oldResult,
+                rewardItems: oldResult.rewardItems ?? [],
+                rewardStatus: oldResult.rewardStatus ?? (wasClaimed ? "kept" : "unclaimed"),
+              } as BattleResult,
+            };
+          });
+        }
+        return state as { battles: Battle[] };
+      },
     }
   )
 );
