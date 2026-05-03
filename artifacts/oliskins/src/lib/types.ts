@@ -1,6 +1,13 @@
 import type { Mode } from "./chances";
 
-export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
+export type Rarity =
+  | "consumer"
+  | "industrial"
+  | "mil_spec"
+  | "restricted"
+  | "classified"
+  | "covert"
+  | "extraordinary";
 
 export type Drop = {
   id: string;

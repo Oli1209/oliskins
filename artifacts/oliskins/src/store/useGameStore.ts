@@ -9,6 +9,7 @@ import {
   CENTS_PER_XP,
   computeLevel,
 } from "../lib/types";
+import { migrateRarity } from "../lib/rarity";
 import { useCaseStore } from "./useCaseStore";
 import { freeCases } from "../data/freeCases";
 import { pickWeighted } from "../lib/random";
@@ -219,7 +220,7 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: "oliskins_state_v1",
-      version: 5,
+      version: 6,
       migrate: (persisted, version) => {
         const state = (persisted ?? {}) as Partial<GameState>;
         if (version < 1) {
@@ -234,9 +235,6 @@ export const useGameStore = create<GameState>()(
           state.lastFreeOpenAt = state.lastFreeOpenAt ?? null;
         }
         if (version < 3) {
-          // XP system replaces the old casesOpened-based level. Initialize
-          // XP from already-spent money so existing players don't lose
-          // progression.
           if (state.xp == null) {
             const spent = state.stats?.totalSpentCents ?? 0;
             state.xp = Math.floor(spent / CENTS_PER_XP);
@@ -247,6 +245,13 @@ export const useGameStore = create<GameState>()(
         }
         if (version < 5) {
           state.stats = { ...DEFAULT_STATS, ...(state.stats ?? {}) };
+        }
+        if (version < 6) {
+          // Migrate old rarity keys to CS-style keys in inventory
+          state.inventory = (state.inventory ?? []).map((it) => ({
+            ...it,
+            rarity: migrateRarity(it.rarity as string),
+          }));
         }
         return state as GameState;
       },

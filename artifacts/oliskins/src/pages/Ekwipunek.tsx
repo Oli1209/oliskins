@@ -1,9 +1,10 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useGameStore } from "../store/useGameStore";
 import { formatMoney } from "../lib/format";
-import { rarityColors } from "../lib/rarity";
+import { rarityColors, rarityLabelPl, RARITY_ORDER } from "../lib/rarity";
 import { Backpack, Lock, Unlock } from "lucide-react";
 import { GlassCard } from "../components/GlassCard";
+import { SkinCard } from "../components/SkinCard";
 import { InventoryItem, InventorySort, Rarity } from "../lib/types";
 
 const SORT_LABELS: Record<InventorySort, string> = {
@@ -14,13 +15,9 @@ const SORT_LABELS: Record<InventorySort, string> = {
   rarity: "Rzadkość",
 };
 
-const RARITY_RANK: Record<Rarity, number> = {
-  common: 0,
-  uncommon: 1,
-  rare: 2,
-  epic: 3,
-  legendary: 4,
-};
+const RARITY_RANK: Record<Rarity, number> = Object.fromEntries(
+  RARITY_ORDER.map((r, i) => [r, i])
+) as Record<Rarity, number>;
 
 function sortInventory(
   items: InventoryItem[],
@@ -194,21 +191,19 @@ export function Ekwipunek() {
           return (
             <div
               key={item.instanceId}
-              className={`glass-card flex flex-col group relative overflow-hidden border-t-4 hover:border-t-4 border-cyan-500/10 hover:border-cyan-400 transition-all ${
+              className={`glass-card flex flex-col group relative overflow-hidden border-t-4 hover:border-t-4 ${r.border.replace("/40", "/70")} transition-all ${
                 item.locked ? "ring-1 ring-amber-400/30" : ""
               }`}
             >
-              <div
-                className={`absolute top-0 left-0 right-0 h-1 ${r.bg} ${r.border} border-t-2`}
-              ></div>
-              <div className="relative aspect-square w-full bg-slate-950/60 p-4 flex items-center justify-center">
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-full h-full object-contain mix-blend-screen opacity-90 group-hover:scale-110 transition-transform duration-500"
-                />
+              {/* Rarity top stripe */}
+              <div className={`absolute top-0 left-0 right-0 h-0.5 opacity-80`}
+                style={{ background: r.accentHex }} />
 
-                <div className="absolute top-3 left-3">
+              {/* Image area — cutout look */}
+              <div className="relative aspect-square w-full overflow-hidden">
+                <SkinCard image={item.image} name={item.name} rarity={item.rarity} />
+
+                <div className="absolute top-2 left-2 z-20">
                   {item.locked && (
                     <span
                       className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-slate-950/80 backdrop-blur-md border border-amber-400/40 text-amber-300/70 group-hover:text-amber-300 group-hover:border-amber-400/70 group-focus-within:text-amber-300 transition-colors"
@@ -220,11 +215,11 @@ export function Ekwipunek() {
                   )}
                 </div>
 
-                <div className="absolute top-3 right-3">
+                <div className="absolute top-2 right-2 z-20">
                   <span
                     className={`text-[10px] uppercase font-black tracking-widest px-2 py-1 rounded border bg-slate-950/80 backdrop-blur-md ${r.border} ${r.text} shadow-lg`}
                   >
-                    {item.rarity}
+                    {rarityLabelPl(item.rarity)}
                   </span>
                 </div>
               </div>

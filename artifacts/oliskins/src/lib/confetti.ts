@@ -8,8 +8,8 @@ const BURST_INTERVAL_MS = 220;
 
 /**
  * Decides whether the just-opened items deserve celebration confetti.
- * Triggers on legendary drops, or when any item value is at least
- * 5x the case price (when known).
+ * Triggers on extraordinary or covert drops, or when any item value is at
+ * least 5x the case price (when known).
  */
 export function shouldFireForItems(
   items: InventoryItem[],
@@ -17,7 +17,7 @@ export function shouldFireForItems(
 ): boolean {
   if (items.length === 0) return false;
   for (const it of items) {
-    if (it.rarity === "legendary") return true;
+    if (it.rarity === "extraordinary" || it.rarity === "covert") return true;
     if (
       casePriceCents !== undefined &&
       casePriceCents > 0 &&
@@ -51,16 +51,15 @@ export function fireGoldConfetti(): void {
     disableForReducedMotion: true,
   };
 
-  // Fire one immediately, then small bursts on an interval until duration ends.
   const fireBurst = () => {
     confetti({
       ...baseOpts,
-      angle: 70, // up-right
+      angle: 70,
       spread: 55,
     });
     confetti({
       ...baseOpts,
-      angle: 110, // up-left
+      angle: 110,
       spread: 55,
     });
   };

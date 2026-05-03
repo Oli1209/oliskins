@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Case } from "../lib/types";
+import { migrateRarity } from "../lib/rarity";
 import { mockCases } from "../data/mockCases";
 
 type CaseStoreState = {
@@ -10,6 +11,16 @@ type CaseStoreState = {
   deleteCase: (id: string) => void;
   importCases: (cases: Case[]) => void;
 };
+
+function migrateCase(c: Case): Case {
+  return {
+    ...c,
+    drops: c.drops.map((d) => ({
+      ...d,
+      rarity: migrateRarity(d.rarity as string),
+    })),
+  };
+}
 
 export const useCaseStore = create<CaseStoreState>()(
   persist(
@@ -28,6 +39,16 @@ export const useCaseStore = create<CaseStoreState>()(
 
       importCases: (cases) => set({ paidCases: cases }),
     }),
-    { name: "oliskins_cases_v1" }
+    {
+      name: "oliskins_cases_v1",
+      version: 1,
+      migrate: (persisted, version) => {
+        const state = (persisted ?? {}) as Partial<CaseStoreState>;
+        if (version < 1) {
+          state.paidCases = (state.paidCases ?? []).map(migrateCase);
+        }
+        return state as CaseStoreState;
+      },
+    }
   )
 );

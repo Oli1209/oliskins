@@ -1,0 +1,87 @@
+Implement two upgrades in one pass:
+
+Migrate the rarity system to CS-style rarities/colors.
+Upgrade visual presentation of skins in opening animations and skin tiles to a “cutout” look with rarity effects (similar to modern CS skin sites): weapon image on transparent/clean background, with a rarity-colored neon/glow/hex accent behind it (not full-bleed image).
+=====================================================
+PART 1 — RARITY SYSTEM MIGRATION (CS STYLE)
+1.1 New rarity keys (canonical)
+Replace old rarities with these keys everywhere:
+
+consumer (white)
+industrial (light blue)
+mil_spec (blue)
+restricted (purple)
+classified (pink)
+covert (red)
+extraordinary (gold)
+1.2 Central rarity metadata module
+Create src/lib/rarity.ts (single source of truth) exporting:
+
+RARITY_ORDER (lowest->highest)
+rarityLabelPl(rarity) (Polish labels: Consumer/Biały, Industrial/Jasnoniebieski, etc.)
+Tailwind class helpers for:
+text color
+border color
+glow/shadow color
+background accent color
+1.3 Update all UI to use this module
+Badges, borders, sorting by rarity, inventory tiles, battle tiles, drop preview lists, builder dropdowns.
+Confetti triggers: treat extraordinary as top rarity.
+1.4 Backward-compatible mapping (migration)
+Existing stored data may contain old rarities:
+common | uncommon | rare | epic | legendary | mythical
+Add a mapping on load/import so old saves still render:
+
+common -> consumer
+uncommon -> industrial
+rare -> mil_spec
+epic -> restricted
+legendary -> covert
+mythical -> extraordinary
+Apply mapping for:
+
+cases in the case builder store (paid cases)
+inventory items
+battle drops stored in history (if persisted)
+=====================================================
+PART 2 — SKIN VISUAL “CUTOUT” TILE + RARITY EFFECT (OPENING + TILES)
+2.1 Create a reusable component
+Create src/components/SkinCard.tsx (or SkinTile) used in:
+
+case opening reel items
+opening summary tiles
+inventory tiles (where appropriate)
+battle obtained-items grid tiles
+Component requirements:
+
+The weapon image should NOT be full-bleed.
+Render image as a centered “cutout” with padding and object-contain.
+Behind the weapon, render a subtle rarity accent:
+a hex/outline shape or soft geometric glow in rarity color (purple/pink/red/gold etc.)
+not too invasive
+Add a subtle rarity glow on hover / highlight states.
+Implementation guidelines:
+
+Use a layered approach:
+background glass card
+accent layer (hex outline or radial glow) in rarity color with low opacity
+image layer centered with padding
+Ensure consistent sizing with props (sm/md/lg).
+2.2 Update opening animations
+In case opening animations (and battle reels if present):
+
+Use SkinCard tiles for the reel items.
+During rolling, show only the image + rarity accent (no big text overlays).
+Keep existing indicator line and animation behavior.
+2.3 Update tile UI to match reference
+For item tiles (preview lists, inventory grid):
+
+Use the new cutout look.
+Keep name/value text below the tile (not over the image).
+Chance% (if shown) can stay in a corner like the reference.
+=====================================================
+Acceptance
+App compiles and all rarities are CS-style and consistent across the app.
+Old persisted data is auto-mapped and does not break.
+Opening reels and skin tiles use the cutout + rarity glow style (weapon centered, accent behind).
+Confetti still triggers for extraordinary.

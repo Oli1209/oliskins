@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InventoryItem } from "../lib/types";
 import { formatMoney } from "../lib/format";
-import { rarityColors } from "../lib/rarity";
+import { rarityColors, rarityLabelPl } from "../lib/rarity";
 import { useGameStore } from "../store/useGameStore";
 import { fireGoldConfetti, shouldFireForItems } from "../lib/confetti";
+import { SkinCard } from "./SkinCard";
 
 type Props = {
   items: InventoryItem[];
@@ -29,14 +30,12 @@ export function OpeningSummary({ items, onClose, casePriceCents }: Props) {
   const [busy, setBusy] = useState(false);
   const confettiFiredRef = useRef(false);
 
-  // Fire confetti once on mount when items qualify and the setting is on.
   useEffect(() => {
     if (confettiFiredRef.current) return;
     if (!confettiEnabled) return;
     if (!shouldFireForItems(items, casePriceCents)) return;
     confettiFiredRef.current = true;
     fireGoldConfetti();
-    // Intentionally only depend on initial items snapshot.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -124,23 +123,19 @@ export function OpeningSummary({ items, onClose, casePriceCents }: Props) {
                 className={`group relative rounded-xl border-2 bg-slate-950/70 overflow-hidden ${r.border} ${r.glow}`}
               >
                 <div className="aspect-square relative">
-                  <img
-                    src={it.image}
-                    alt={it.name}
-                    className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-85"
-                  />
-                  <div className="absolute top-2 right-2">
+                  <SkinCard image={it.image} name={it.name} rarity={it.rarity} />
+                  <div className="absolute top-2 right-2 z-20">
                     <span
                       className={`text-[10px] uppercase font-black tracking-widest px-2 py-0.5 rounded bg-slate-950/80 backdrop-blur-md border ${r.border} ${r.text}`}
                     >
-                      {it.rarity}
+                      {rarityLabelPl(it.rarity)}
                     </span>
                   </div>
                   <button
                     type="button"
                     onClick={() => handleSellOne(it.instanceId)}
                     disabled={busy}
-                    className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider bg-red-500/30 border border-red-400/60 text-red-100 backdrop-blur-md transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 hover:bg-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                    className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wider bg-red-500/30 border border-red-400/60 text-red-100 backdrop-blur-md transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100 hover:bg-red-500/50 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                     aria-label={`Sprzedaj ${it.name} za ${formatMoney(it.valueCents)}`}
                   >
                     Sprzedaj {formatMoney(it.valueCents)}

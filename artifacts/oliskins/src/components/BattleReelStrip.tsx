@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import type { Drop } from "../lib/types";
 import type { BattleDrop } from "../lib/battleTypes";
 import type { EffectiveDrop } from "../lib/chances";
-import { rarityColors } from "../lib/rarity";
+import { rarityColors, rarityLabelPl } from "../lib/rarity";
 import { formatMoney } from "../lib/format";
+import { SkinCard } from "./SkinCard";
 
 // ─── Vertical Reel Strip (image-only tiles) ───────────────────────────────────
 
@@ -47,7 +48,7 @@ export function BattleReelStrip({ fillerDrops, winner, durationMs = 3200 }: Prop
   const reelItems = useMemo(() => {
     const safe = fillerDrops.length > 0
       ? fillerDrops
-      : [{ id: "fb", name: "?", rarity: "common" as const, image: "", valueCents: 0, weight: 1 }];
+      : [{ id: "fb", name: "?", rarity: "consumer" as const, image: "", valueCents: 0, weight: 1 }];
 
     return Array.from({ length: REEL_LENGTH }, (_, i) => {
       if (i === WINNING_INDEX) {
@@ -82,12 +83,9 @@ export function BattleReelStrip({ fillerDrops, winner, durationMs = 3200 }: Prop
               className={`mx-1.5 shrink-0 relative rounded-lg border-2 overflow-hidden ${r.border} ${isWinner ? "shadow-lg brightness-110" : "opacity-60"}`}
               style={{ height: TILE_H }}
             >
-              {drop.image
-                ? <img src={drop.image} alt="" className="absolute inset-0 w-full h-full object-cover mix-blend-screen" />
-                : <div className={`absolute inset-0 ${r.bg} opacity-40`} />
-              }
+              <SkinCard image={drop.image} name={drop.name} rarity={drop.rarity} />
               {/* Rarity stripe at bottom */}
-              <div className={`absolute inset-x-0 bottom-0 h-1.5 ${r.bg} opacity-70`} />
+              <div className={`absolute inset-x-0 bottom-0 h-1.5 ${r.bg} opacity-70 pointer-events-none`} />
             </div>
           );
         })}
@@ -99,7 +97,9 @@ export function BattleReelStrip({ fillerDrops, winner, durationMs = 3200 }: Prop
       <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-950 to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950 to-transparent" />
       {/* Rarity badge */}
-      <div className={`absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${rc.bg} ${rc.text} border ${rc.border}`}>{winner.rarity}</div>
+      <div className={`absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${rc.bg} ${rc.text} border ${rc.border}`}>
+        {rarityLabelPl(winner.rarity)}
+      </div>
     </div>
   );
 }
@@ -110,8 +110,8 @@ export function RevealedDropCard({ drop }: { drop: BattleDrop }) {
   const rc = rarityColors[drop.rarity];
   return (
     <div className={`flex flex-col items-center rounded-lg border ${rc.border} bg-slate-900/70 p-1.5 gap-1`}>
-      <div className={`w-full aspect-square rounded-md border ${rc.border} bg-slate-950/60 overflow-hidden relative`} style={{ maxHeight: 52 }}>
-        {drop.image && <img src={drop.image} alt={drop.name} className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-80" />}
+      <div className={`w-full aspect-square rounded-md border ${rc.border} overflow-hidden relative`} style={{ maxHeight: 52 }}>
+        <SkinCard image={drop.image} name={drop.name} rarity={drop.rarity} />
       </div>
       <p className={`text-[9px] font-bold text-center w-full truncate leading-tight ${rc.text}`}>{drop.name}</p>
       <p className="text-[9px] font-mono text-slate-300">{formatMoney(drop.valueCents)}</p>

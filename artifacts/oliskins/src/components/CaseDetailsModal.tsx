@@ -5,7 +5,8 @@ import { Case, InventoryItem } from "../lib/types";
 import { useGameStore } from "../store/useGameStore";
 import { useCaseStore } from "../store/useCaseStore";
 import { formatMoney } from "../lib/format";
-import { rarityColors } from "../lib/rarity";
+import { rarityColors, rarityLabelPl } from "../lib/rarity";
+import { SkinCard } from "./SkinCard";
 import { CaseReelStrip } from "./CaseReelStrip";
 import { OpeningSummary } from "./OpeningSummary";
 import {
@@ -336,19 +337,15 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
               return (
                 <div
                   key={d.id}
-                  className={`relative rounded-lg border bg-slate-950/70 ${r.border} overflow-hidden flex flex-col`}
+                  className={`relative rounded-lg border ${r.border} overflow-hidden flex flex-col`}
                 >
                   <div className="aspect-square relative">
-                    <img
-                      src={d.image}
-                      alt={d.name}
-                      className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-85"
-                    />
-                    <div className="absolute top-1.5 right-1.5">
+                    <SkinCard image={d.image} name={d.name} rarity={d.rarity} />
+                    <div className="absolute top-1.5 right-1.5 z-20">
                       <span
                         className={`text-[9px] uppercase font-black tracking-widest px-1.5 py-0.5 rounded bg-slate-950/80 backdrop-blur-md border ${r.border} ${r.text}`}
                       >
-                        {d.rarity}
+                        {rarityLabelPl(d.rarity)}
                       </span>
                     </div>
                   </div>

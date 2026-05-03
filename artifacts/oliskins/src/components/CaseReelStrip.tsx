@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Case, Drop, InventoryItem } from "../lib/types";
 import { rarityColors } from "../lib/rarity";
+import { SkinCard } from "./SkinCard";
 
 type Props = {
   caseData: Case;
@@ -64,7 +65,6 @@ export function CaseReelStrip({
     return items;
   }, [caseData, winningItem]);
 
-  // Initial animation
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
@@ -132,18 +132,13 @@ export function CaseReelStrip({
             <div
               key={key}
               data-winner={isWinner ? "true" : undefined}
-              className={`shrink-0 relative rounded-lg border-2 overflow-hidden bg-slate-900/80 ${r.border}`}
+              className={`shrink-0 relative rounded-lg border-2 overflow-hidden ${r.border}`}
               style={{ width: tileSize, height: tileSize }}
             >
-              <img
-                src={drop.image}
-                alt={drop.name}
-                className="absolute inset-0 w-full h-full object-cover mix-blend-screen opacity-80"
-              />
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/95 to-transparent px-1.5 pt-3 pb-1">
-                <p
-                  className={`text-[9px] font-bold uppercase tracking-wider truncate ${r.text}`}
-                >
+              <SkinCard image={drop.image} name={drop.name} rarity={drop.rarity} />
+              {/* Name badge at bottom */}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/95 to-transparent px-1.5 pt-3 pb-1 pointer-events-none">
+                <p className={`text-[9px] font-bold uppercase tracking-wider truncate ${r.text}`}>
                   {drop.name}
                 </p>
               </div>

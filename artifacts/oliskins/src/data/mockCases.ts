@@ -23,12 +23,12 @@ export const mockCases: Case[] = [
     modePricing: { boostMult: 2.0, jesterMult: 20.0 },
     image: createSvgPlaceholder("#1e1b4b", "#4c1d95", "Nocna Burza"),
     drops: [
-      { id: "drop-neon-1", name: "Pistolet | Cień", rarity: "common", valueCents: 20, weight: 100, image: createSvgPlaceholder("#3f3f46", "#18181b", "Cień") },
-      { id: "drop-neon-2", name: "SMG | Zmierzch", rarity: "common", valueCents: 30, weight: 90, image: createSvgPlaceholder("#3f3f46", "#18181b", "Zmierzch") },
-      { id: "drop-neon-3", name: "Karabin | Kwas", rarity: "uncommon", valueCents: 100, weight: 50, image: createSvgPlaceholder("#064e3b", "#065f46", "Kwas") },
-      { id: "drop-neon-4", name: "Strzelba | Neon", rarity: "rare", valueCents: 350, weight: 20, image: createSvgPlaceholder("#164e63", "#0891b2", "Neon") },
-      { id: "drop-neon-5", name: "Snajperka | Fiolet", rarity: "epic", valueCents: 1200, weight: 5, image: createSvgPlaceholder("#4a044e", "#c026d3", "Fiolet") },
-      { id: "drop-neon-6", name: "Nóż | Nocne Ostrze", rarity: "legendary", valueCents: 8500, weight: 1, image: createSvgPlaceholder("#78350f", "#f59e0b", "Nocne Ostrze") },
+      { id: "drop-neon-1", name: "Pistolet | Cień",        rarity: "consumer",   valueCents: 20,   weight: 100, image: createSvgPlaceholder("#3f3f46", "#18181b", "Cień") },
+      { id: "drop-neon-2", name: "SMG | Zmierzch",         rarity: "consumer",   valueCents: 30,   weight: 90,  image: createSvgPlaceholder("#3f3f46", "#18181b", "Zmierzch") },
+      { id: "drop-neon-3", name: "Karabin | Kwas",         rarity: "industrial", valueCents: 100,  weight: 50,  image: createSvgPlaceholder("#064e3b", "#065f46", "Kwas") },
+      { id: "drop-neon-4", name: "Strzelba | Neon",        rarity: "mil_spec",   valueCents: 350,  weight: 20,  image: createSvgPlaceholder("#164e63", "#0891b2", "Neon") },
+      { id: "drop-neon-5", name: "Snajperka | Fiolet",     rarity: "restricted", valueCents: 1200, weight: 5,   image: createSvgPlaceholder("#4a044e", "#c026d3", "Fiolet") },
+      { id: "drop-neon-6", name: "Nóż | Nocne Ostrze",    rarity: "covert",     valueCents: 8500, weight: 1,   image: createSvgPlaceholder("#78350f", "#f59e0b", "Nocne Ostrze") },
     ]
   },
   {
@@ -39,12 +39,12 @@ export const mockCases: Case[] = [
     modePricing: { boostMult: 2.0, jesterMult: 21.67 },
     image: createSvgPlaceholder("#083344", "#06b6d4", "Cyber-Punk"),
     drops: [
-      { id: "drop-cyber-1", name: "Pistolet | Szum", rarity: "common", valueCents: 40, weight: 100, image: createSvgPlaceholder("#3f3f46", "#18181b", "Szum") },
-      { id: "drop-cyber-2", name: "SMG | Glitch", rarity: "common", valueCents: 60, weight: 90, image: createSvgPlaceholder("#3f3f46", "#18181b", "Glitch") },
-      { id: "drop-cyber-3", name: "Karabin | Sieć", rarity: "uncommon", valueCents: 200, weight: 50, image: createSvgPlaceholder("#064e3b", "#065f46", "Sieć") },
-      { id: "drop-cyber-4", name: "Strzelba | Plazma", rarity: "rare", valueCents: 800, weight: 20, image: createSvgPlaceholder("#164e63", "#0891b2", "Plazma") },
-      { id: "drop-cyber-5", name: "Snajperka | Kod", rarity: "epic", valueCents: 2500, weight: 5, image: createSvgPlaceholder("#4a044e", "#c026d3", "Kod") },
-      { id: "drop-cyber-6", name: "Rękawice | Cyber-Ostrze", rarity: "legendary", valueCents: 15000, weight: 1, image: createSvgPlaceholder("#78350f", "#f59e0b", "Cyber-Ostrze") },
+      { id: "drop-cyber-1", name: "Pistolet | Szum",            rarity: "consumer",   valueCents: 40,    weight: 100, image: createSvgPlaceholder("#3f3f46", "#18181b", "Szum") },
+      { id: "drop-cyber-2", name: "SMG | Glitch",               rarity: "consumer",   valueCents: 60,    weight: 90,  image: createSvgPlaceholder("#3f3f46", "#18181b", "Glitch") },
+      { id: "drop-cyber-3", name: "Karabin | Sieć",             rarity: "industrial", valueCents: 200,   weight: 50,  image: createSvgPlaceholder("#064e3b", "#065f46", "Sieć") },
+      { id: "drop-cyber-4", name: "Strzelba | Plazma",          rarity: "mil_spec",   valueCents: 800,   weight: 20,  image: createSvgPlaceholder("#164e63", "#0891b2", "Plazma") },
+      { id: "drop-cyber-5", name: "Snajperka | Kod",            rarity: "restricted", valueCents: 2500,  weight: 5,   image: createSvgPlaceholder("#4a044e", "#c026d3", "Kod") },
+      { id: "drop-cyber-6", name: "Rękawice | Cyber-Ostrze",   rarity: "covert",     valueCents: 15000, weight: 1,   image: createSvgPlaceholder("#78350f", "#f59e0b", "Cyber-Ostrze") },
     ]
   },
   {
@@ -55,12 +55,12 @@ export const mockCases: Case[] = [
     modePricing: { boostMult: 2.0, jesterMult: 24.0 },
     image: createSvgPlaceholder("#171717", "#52525b", "Mroczne Szkło"),
     drops: [
-      { id: "drop-glass-1", name: "Pistolet | Pył", rarity: "common", valueCents: 80, weight: 100, image: createSvgPlaceholder("#3f3f46", "#18181b", "Pył") },
-      { id: "drop-glass-2", name: "SMG | Szron", rarity: "common", valueCents: 120, weight: 90, image: createSvgPlaceholder("#3f3f46", "#18181b", "Szron") },
-      { id: "drop-glass-3", name: "Karabin | Odłamek", rarity: "uncommon", valueCents: 400, weight: 50, image: createSvgPlaceholder("#064e3b", "#065f46", "Odłamek") },
-      { id: "drop-glass-4", name: "Strzelba | Kryształ", rarity: "rare", valueCents: 1500, weight: 20, image: createSvgPlaceholder("#164e63", "#0891b2", "Kryształ") },
-      { id: "drop-glass-5", name: "Snajperka | Zwierciadło", rarity: "epic", valueCents: 4500, weight: 5, image: createSvgPlaceholder("#4a044e", "#c026d3", "Zwierciadło") },
-      { id: "drop-glass-6", name: "Nóż | Szklane Serce", rarity: "legendary", valueCents: 30000, weight: 1, image: createSvgPlaceholder("#78350f", "#f59e0b", "Szklane Serce") },
+      { id: "drop-glass-1", name: "Pistolet | Pył",          rarity: "consumer",     valueCents: 80,    weight: 100, image: createSvgPlaceholder("#3f3f46", "#18181b", "Pył") },
+      { id: "drop-glass-2", name: "SMG | Szron",              rarity: "consumer",     valueCents: 120,   weight: 90,  image: createSvgPlaceholder("#3f3f46", "#18181b", "Szron") },
+      { id: "drop-glass-3", name: "Karabin | Odłamek",       rarity: "industrial",   valueCents: 400,   weight: 50,  image: createSvgPlaceholder("#064e3b", "#065f46", "Odłamek") },
+      { id: "drop-glass-4", name: "Strzelba | Kryształ",     rarity: "mil_spec",     valueCents: 1500,  weight: 20,  image: createSvgPlaceholder("#164e63", "#0891b2", "Kryształ") },
+      { id: "drop-glass-5", name: "Snajperka | Zwierciadło", rarity: "classified",   valueCents: 4500,  weight: 5,   image: createSvgPlaceholder("#4a044e", "#c026d3", "Zwierciadło") },
+      { id: "drop-glass-6", name: "Nóż | Szklane Serce",    rarity: "extraordinary", valueCents: 30000, weight: 1,   image: createSvgPlaceholder("#78350f", "#f59e0b", "Szklane Serce") },
     ]
   }
 ];

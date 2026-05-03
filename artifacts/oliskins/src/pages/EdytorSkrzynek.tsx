@@ -4,18 +4,18 @@ import {
   ArrowLeft, Plus, Trash2, Copy, Check, Upload, Wrench, PackagePlus, Shuffle,
 } from "lucide-react";
 import { useCaseStore } from "../store/useCaseStore";
-import { rarityColors } from "../lib/rarity";
+import { rarityColors, RARITY_ORDER, rarityLabelPl } from "../lib/rarity";
 import { formatMoney } from "../lib/format";
 import type { Case, Drop, Rarity, ModePricing } from "../lib/types";
 import { DEFAULT_MODE_PRICING } from "../lib/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const RARITIES: Rarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
+const RARITIES: Rarity[] = [...RARITY_ORDER];
 
-const RARITY_LABELS: Record<Rarity, string> = {
-  common: "Common", uncommon: "Uncommon", rare: "Rare", epic: "Epic", legendary: "Legendary",
-};
+const RARITY_LABELS: Record<Rarity, string> = Object.fromEntries(
+  RARITY_ORDER.map((r) => [r, rarityLabelPl(r)])
+) as Record<Rarity, string>;
 
 function makeSvgPlaceholder(text: string) {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="100%" height="100%" fill="#0f172a"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#94a3b8" font-family="sans-serif" font-size="20" font-weight="bold">${text}</text></svg>`;
@@ -23,7 +23,7 @@ function makeSvgPlaceholder(text: string) {
 }
 
 function newDrop(): Drop {
-  return { id: crypto.randomUUID(), name: "", rarity: "common", valueCents: 0, weight: 10, image: "" };
+  return { id: crypto.randomUUID(), name: "", rarity: "consumer", valueCents: 0, weight: 10, image: "" };
 }
 
 function newCase(): Case {
