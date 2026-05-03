@@ -356,7 +356,8 @@ export function EdytorSkrzynek() {
   };
 
   const handleCopyJson = () => {
-    navigator.clipboard.writeText(JSON.stringify(paidCases, null, 2)).then(() => {
+    const payload = { schemaVersion: 1, paidCases };
+    navigator.clipboard.writeText(JSON.stringify(payload, null, 2)).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -367,15 +368,25 @@ export function EdytorSkrzynek() {
     setImportOk(false);
     try {
       const parsed = JSON.parse(importText);
-      if (!Array.isArray(parsed)) throw new Error("Oczekiwano tablicy JSON.");
-      for (const c of parsed) {
+      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        throw new Error("Oczekiwano obiektu JSON z polem schemaVersion.");
+      }
+      if (parsed.schemaVersion === undefined || parsed.schemaVersion === null) {
+        throw new Error("Brak schemaVersion — ten plik nie jest prawidłowym eksportem.");
+      }
+      if (parsed.schemaVersion !== 1) {
+        throw new Error(`Nieobsługiwana wersja schematu: ${parsed.schemaVersion}. Obsługiwana wersja: 1.`);
+      }
+      const cases = parsed.paidCases;
+      if (!Array.isArray(cases)) throw new Error("Brak tablicy paidCases w pliku.");
+      for (const c of cases) {
         if (typeof c.id !== "string" || !c.id) throw new Error(`Nieprawidłowe id: ${JSON.stringify(c.id)}`);
         if (typeof c.name !== "string") throw new Error(`Brak nazwy dla id=${c.id}`);
         if (typeof c.priceCents !== "number") throw new Error(`Brak priceCents dla id=${c.id}`);
         if (!Array.isArray(c.drops)) throw new Error(`Brak tablicy drops dla id=${c.id}`);
       }
-      if (!window.confirm(`Zaimportować ${parsed.length} skrzynek? Zastąpi to obecną listę.`)) return;
-      importCases(parsed);
+      if (!window.confirm("Import nadpisze wszystkie obecne skrzynki. Kontynuować?")) return;
+      importCases(cases);
       setImportText("");
       setImportOk(true);
       setTimeout(() => setImportOk(false), 2500);

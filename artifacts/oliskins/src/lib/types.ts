@@ -107,6 +107,16 @@ export const FREE_CASE_COOLDOWN_MS = 60 * 60 * 1000; // 1h
 export const XP_PER_LEVEL = 100;
 export const CENTS_PER_XP = 500; // #5.00 spent = 1 XP
 
+/** Returns true if a case has valid drops and weights for opening/battles. */
+export function isCaseValid(c: Case): boolean {
+  if (!c.drops || c.drops.length === 0) return false;
+  if (c.drops.some((d) => d.weight <= 0)) return false;
+  const sumWeights = c.drops.reduce((s, d) => s + d.weight, 0);
+  return sumWeights > 0;
+}
+
+export const INVALID_CASE_MSG = "Nie można użyć tej skrzynki — błędne dropy (wagi).";
+
 /** Level derived from XP. 100 XP per level. */
 export function computeLevel(xp: number): number {
   return 1 + Math.floor(Math.max(0, xp) / XP_PER_LEVEL);

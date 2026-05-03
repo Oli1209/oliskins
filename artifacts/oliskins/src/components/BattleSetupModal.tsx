@@ -5,6 +5,7 @@ import type { SelectedCase } from "../lib/battleTypes";
 import type { Mode } from "../lib/chances";
 import { getUnitCostCents } from "../lib/chances";
 import { formatMoney } from "../lib/format";
+import { isCaseValid, INVALID_CASE_MSG } from "../lib/types";
 
 type SortKey = "default" | "price-asc" | "price-desc";
 
@@ -49,6 +50,11 @@ export function CaseSelectorModal({ onAdd, onClose }: Props) {
   const totalCost = unitCost * qty;
 
   const handlePick = (caseId: string) => {
+    const c = paidCases.find((x) => x.id === caseId);
+    if (!c || !isCaseValid(c)) {
+      alert(INVALID_CASE_MSG);
+      return;
+    }
     setPickedId(caseId);
     setQty(1);
     setOpenMode("normal");
@@ -118,25 +124,36 @@ export function CaseSelectorModal({ onAdd, onClose }: Props) {
 
               {/* Case grid */}
               <div className="grid grid-cols-2 gap-2">
-                {filteredCases.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => handlePick(c.id)}
-                    className="flex items-center gap-3 rounded-xl border border-slate-700/40 bg-slate-900/50 px-3 py-3 hover:border-cyan-500/50 hover:bg-slate-800/70 transition-all text-left group"
-                  >
-                    <img src={c.image} alt="" className="w-12 h-10 rounded-lg object-cover shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-200 truncate group-hover:text-cyan-300 transition-colors">
-                        {c.name}
-                      </p>
-                      <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                        {formatMoney(c.priceCents)}
-                      </p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-cyan-400 shrink-0 transition-colors" />
-                  </button>
-                ))}
+                {filteredCases.map((c) => {
+                  const valid = isCaseValid(c);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => handlePick(c.id)}
+                      title={!valid ? INVALID_CASE_MSG : undefined}
+                      className={`flex items-center gap-3 rounded-xl border px-3 py-3 transition-all text-left group ${
+                        valid
+                          ? "border-slate-700/40 bg-slate-900/50 hover:border-cyan-500/50 hover:bg-slate-800/70"
+                          : "border-red-500/20 bg-red-950/10 opacity-60 cursor-not-allowed"
+                      }`}
+                    >
+                      <img src={c.image} alt="" className="w-12 h-10 rounded-lg object-cover shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-bold truncate transition-colors ${valid ? "text-slate-200 group-hover:text-cyan-300" : "text-red-300"}`}>
+                          {c.name}
+                        </p>
+                        <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                          {valid ? formatMoney(c.priceCents) : "Błędne dropy"}
+                        </p>
+                      </div>
+                      {valid
+                        ? <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-cyan-400 shrink-0 transition-colors" />
+                        : <span className="text-[10px] text-red-400 font-bold shrink-0">✕</span>
+                      }
+                    </button>
+                  );
+                })}
                 {filteredCases.length === 0 && (
                   <p className="col-span-2 text-center text-slate-500 text-sm py-8">Brak wyników</p>
                 )}
