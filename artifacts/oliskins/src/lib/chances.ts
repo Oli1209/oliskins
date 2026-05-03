@@ -1,4 +1,4 @@
-import { Case, Drop } from "./types";
+import { Case, Drop, DEFAULT_MODE_PRICING } from "./types";
 
 export type Mode = "normal" | "boost" | "jester";
 
@@ -11,13 +11,13 @@ export type EffectiveDrop = Drop & {
  * Per-open cost (in cents) for a case under the chosen mode.
  *
  * - Normal: case.priceCents
- * - Boost:  case.priceCents * 2
- * - Jester: case.jesterPriceCents (falls back to case.priceCents)
+ * - Boost:  case.priceCents * modePricing.boostMult  (default 2.0)
+ * - Jester: case.priceCents * modePricing.jesterMult (default 1.0)
  */
 export function getUnitCostCents(caseData: Case, mode: Mode): number {
-  if (mode === "boost") return caseData.priceCents * 2;
-  if (mode === "jester")
-    return caseData.jesterPriceCents ?? caseData.priceCents;
+  const mp = caseData.modePricing ?? DEFAULT_MODE_PRICING;
+  if (mode === "boost") return Math.round(caseData.priceCents * mp.boostMult);
+  if (mode === "jester") return Math.round(caseData.priceCents * mp.jesterMult);
   return caseData.priceCents;
 }
 

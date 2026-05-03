@@ -1,12 +1,13 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowLeft, Plus, Trash2, Copy, Check, Upload, Wrench, PackagePlus,
+  ArrowLeft, Plus, Trash2, Copy, Check, Upload, Wrench, PackagePlus, Shuffle,
 } from "lucide-react";
 import { useCaseStore } from "../store/useCaseStore";
 import { rarityColors } from "../lib/rarity";
 import { formatMoney } from "../lib/format";
-import type { Case, Drop, Rarity } from "../lib/types";
+import type { Case, Drop, Rarity, ModePricing } from "../lib/types";
+import { DEFAULT_MODE_PRICING } from "../lib/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -29,7 +30,9 @@ function newCase(): Case {
   const name = "Nowa Skrzynka";
   return {
     id: crypto.randomUUID(), name, description: "",
-    priceCents: 100, image: makeSvgPlaceholder(name), drops: [newDrop()],
+    priceCents: 100, image: makeSvgPlaceholder(name),
+    modePricing: { ...DEFAULT_MODE_PRICING },
+    drops: [newDrop()],
   };
 }
 
@@ -41,9 +44,31 @@ function centsInput(cents: number): string {
   return (cents / 100).toFixed(2);
 }
 
+function parseMultiplier(raw: string): number {
+  return Math.max(0.01, parseFloat(raw.replace(",", ".")) || 0);
+}
+
+/** Normalize weights to sum to exactly 10000, preserving relative ratios. */
+function normalizeWeights(drops: Drop[]): Drop[] {
+  if (drops.length === 0) return drops;
+  const sum = drops.reduce((s, d) => s + d.weight, 0);
+  if (sum <= 0) return drops;
+  const TARGET = 10000;
+  const scaled = drops.map((d) => Math.round((d.weight / sum) * TARGET));
+  const scaledSum = scaled.reduce((s, w) => s + w, 0);
+  const diff = TARGET - scaledSum;
+  // Adjust the drop with the largest original weight to absorb rounding error
+  const maxIdx = drops.reduce(
+    (best, d, i) => (d.weight > drops[best].weight ? i : best),
+    0
+  );
+  scaled[maxIdx] = Math.max(1, scaled[maxIdx] + diff);
+  return drops.map((d, i) => ({ ...d, weight: scaled[i] }));
+}
+
 // ─── Validation ───────────────────────────────────────────────────────────────
 
-type CaseErrors = { name?: string; priceCents?: string; drops?: string };
+type CaseErrors = { name?: string; priceCents?: string; drops?: string; boostMult?: string; jesterMult?: string };
 type DropErrors = { name?: string; weight?: string; valueCents?: string }[];
 
 function validateCase(draft: Case): { caseErrors: CaseErrors; dropErrors: DropErrors; valid: boolean } {
@@ -54,6 +79,10 @@ function validateCase(draft: Case): { caseErrors: CaseErrors; dropErrors: DropEr
   if (!draft.name.trim()) { caseErrors.name = "Nazwa jest wymagana."; valid = false; }
   if (draft.priceCents < 0) { caseErrors.priceCents = "Cena nie może być ujemna."; valid = false; }
   if (draft.drops.length === 0) { caseErrors.drops = "Skrzynka musi mieć co najmniej jeden drop."; valid = false; }
+
+  const mp = draft.modePricing ?? DEFAULT_MODE_PRICING;
+  if (mp.boostMult <= 0) { caseErrors.boostMult = "Mnożnik > 0."; valid = false; }
+  if (mp.jesterMult <= 0) { caseErrors.jesterMult = "Mnożnik > 0."; valid = false; }
 
   draft.drops.forEach((d, i) => {
     if (!d.name.trim()) { dropErrors[i].name = "Wymagana nazwa."; valid = false; }
@@ -161,17 +190,25 @@ function CaseEditor({ caseId, onDeselect }: { caseId: string; onDeselect: () => 
   const { paidCases, updateCase, deleteCase } = useCaseStore();
   const source = paidCases.find((c) => c.id === caseId);
 
-  const [draft, setDraft] = useState<Case>(() => source ? { ...source, drops: source.drops.map((d) => ({ ...d })) } : newCase());
+  const [draft, setDraft] = useState<Case>(() =>
+    source
+      ? { ...source, drops: source.drops.map((d) => ({ ...d })), modePricing: source.modePricing ?? { ...DEFAULT_MODE_PRICING } }
+      : newCase()
+  );
   const [saved, setSaved] = useState(false);
 
   // Resets draft if case changes externally (e.g. import)
   const stableId = draft.id;
   if (stableId !== caseId && source) {
-    setDraft({ ...source, drops: source.drops.map((d) => ({ ...d })) });
+    setDraft({ ...source, drops: source.drops.map((d) => ({ ...d })), modePricing: source.modePricing ?? { ...DEFAULT_MODE_PRICING } });
   }
 
+  const mp: ModePricing = draft.modePricing ?? DEFAULT_MODE_PRICING;
   const totalWeight = draft.drops.reduce((s, d) => s + d.weight, 0);
   const { caseErrors, dropErrors, valid } = useMemo(() => validateCase(draft), [draft]);
+
+  const setMp = (patch: Partial<ModePricing>) =>
+    setDraft((prev) => ({ ...prev, modePricing: { ...(prev.modePricing ?? DEFAULT_MODE_PRICING), ...patch } }));
 
   const setDrop = (i: number, d: Drop) =>
     setDraft((prev) => ({ ...prev, drops: prev.drops.map((x, j) => (j === i ? d : x)) }));
@@ -180,6 +217,11 @@ function CaseEditor({ caseId, onDeselect }: { caseId: string; onDeselect: () => 
 
   const deleteDrop = (i: number) =>
     setDraft((prev) => ({ ...prev, drops: prev.drops.filter((_, j) => j !== i) }));
+
+  const handleNormalize = () => {
+    if (draft.drops.length === 0) return;
+    setDraft((prev) => ({ ...prev, drops: normalizeWeights(prev.drops) }));
+  };
 
   const handleSave = () => {
     if (!valid) return;
@@ -196,6 +238,13 @@ function CaseEditor({ caseId, onDeselect }: { caseId: string; onDeselect: () => 
 
   const fieldCls = (err?: string) =>
     `w-full bg-slate-900/70 border rounded-xl px-3 py-2 text-sm text-slate-200 outline-none transition-colors ${err ? "border-red-500/60 focus:border-red-400" : "border-slate-700/50 focus:border-cyan-500/50"}`;
+
+  const multFieldCls = (err?: string) =>
+    `w-full bg-slate-900/80 border rounded-lg px-2 py-1.5 text-sm text-slate-200 outline-none transition-colors ${err ? "border-red-500/60 focus:border-red-400" : "border-slate-700/50 focus:border-cyan-500/50"}`;
+
+  const normalCost = draft.priceCents;
+  const boostCost = Math.round(draft.priceCents * mp.boostMult);
+  const jesterCost = Math.round(draft.priceCents * mp.jesterMult);
 
   return (
     <div className="flex flex-col gap-5 min-h-0">
@@ -258,13 +307,69 @@ function CaseEditor({ caseId, onDeselect }: { caseId: string; onDeselect: () => 
         </div>
       </div>
 
+      {/* Mode pricing */}
+      <div className="glass-strong rounded-2xl border border-slate-700/30 p-5 space-y-4">
+        <h3 className="text-sm font-black text-slate-200">Ceny trybów</h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Boost — mnożnik ceny
+            </label>
+            <input
+              type="number" min="0.01" step="0.1"
+              value={mp.boostMult}
+              onChange={(e) => setMp({ boostMult: parseMultiplier(e.target.value) })}
+              className={multFieldCls(caseErrors.boostMult)}
+            />
+            {caseErrors.boostMult && <p className="text-[10px] text-red-400 mt-1">{caseErrors.boostMult}</p>}
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+              Jester — mnożnik ceny
+            </label>
+            <input
+              type="number" min="0.01" step="0.1"
+              value={mp.jesterMult}
+              onChange={(e) => setMp({ jesterMult: parseMultiplier(e.target.value) })}
+              className={multFieldCls(caseErrors.jesterMult)}
+            />
+            {caseErrors.jesterMult && <p className="text-[10px] text-red-400 mt-1">{caseErrors.jesterMult}</p>}
+          </div>
+        </div>
+
+        {/* Estimated costs display */}
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: "Cena Normal", cost: normalCost, color: "text-slate-300" },
+            { label: "Cena Boost", cost: boostCost, color: "text-amber-300" },
+            { label: "Cena Jester", cost: jesterCost, color: "text-purple-300" },
+          ].map(({ label, cost, color }) => (
+            <div key={label} className="rounded-xl border border-slate-800/60 bg-slate-950/50 px-3 py-2.5 text-center">
+              <p className="text-[9px] font-bold uppercase tracking-wider text-slate-600 mb-0.5">{label}</p>
+              <p className={`text-sm font-black font-mono ${color}`}>{formatMoney(cost)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Drops */}
       <div className="glass-strong rounded-2xl border border-slate-700/30 p-5 flex flex-col gap-3 min-h-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <h3 className="text-sm font-black text-slate-200 flex-1">Dropy ({draft.drops.length})</h3>
           <span className="text-[10px] text-slate-500 font-mono">
             Suma wag: <strong className="text-slate-400">{totalWeight.toFixed(1)}</strong>
           </span>
+          <button
+            type="button"
+            onClick={handleNormalize}
+            disabled={draft.drops.length === 0 || totalWeight <= 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 text-violet-300 text-xs font-bold hover:bg-violet-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            title="Skaluj wagi do sumy 10000"
+          >
+            <Shuffle className="w-3.5 h-3.5" /> Normalizuj wagi
+          </button>
           <button
             type="button" onClick={addDrop}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-xs font-bold hover:bg-cyan-500/20 transition-colors"

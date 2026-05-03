@@ -26,11 +26,14 @@ type RollResult = {
 
 const QUANTITY_OPTIONS: Quantity[] = [1, 2, 3, 4, 5];
 
-const MODE_OPTIONS: ReadonlyArray<{ id: Mode; label: string; hint: string }> = [
-  { id: "normal", label: "Normal", hint: "Standardowe szanse" },
-  { id: "boost", label: "Boost", hint: "x2 cena, x2 szansa na drogie" },
-  { id: "jester", label: "Jester", hint: "Równe szanse" },
-];
+function getModeOptions(caseData: Case): ReadonlyArray<{ id: Mode; label: string; hint: string }> {
+  const mp = caseData.modePricing ?? { boostMult: 2.0, jesterMult: 1.0 };
+  return [
+    { id: "normal", label: "Normal", hint: "Standardowe szanse" },
+    { id: "boost", label: "Boost", hint: `×${mp.boostMult.toFixed(2)} cena, x2 szansa na drogie` },
+    { id: "jester", label: "Jester", hint: `×${mp.jesterMult.toFixed(2)} cena, równe szanse` },
+  ];
+}
 
 // Reel tile sizes scale down as the count grows so the stack stays readable.
 const TILE_SIZES: Record<number, { mobile: number; desktop: number }> = {
@@ -177,9 +180,6 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
                   {formatMoney(caseData.priceCents)}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-2 italic">
-                Cena może się zmieniać po wyborze trybu (wkrótce)
-              </p>
             </div>
 
             {/* Modes selector — UI only */}
@@ -188,7 +188,7 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
                 Tryb otwierania
               </p>
               <div className="grid grid-cols-3 gap-2">
-                {MODE_OPTIONS.map((opt) => {
+                {getModeOptions(caseData).map((opt) => {
                   const selected = mode === opt.id;
                   return (
                     <button

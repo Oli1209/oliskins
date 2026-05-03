@@ -11,13 +11,22 @@ export type Drop = {
   weight: number;
 };
 
+export type ModePricing = {
+  boostMult: number;
+  jesterMult: number;
+};
+
+export const DEFAULT_MODE_PRICING: ModePricing = {
+  boostMult: 2.0,
+  jesterMult: 1.0,
+};
+
 export type Case = {
   id: string;
   name: string;
   description: string;
   priceCents: number;
-  /** Optional flat Jester price (in cents). Falls back to priceCents. */
-  jesterPriceCents?: number;
+  modePricing?: ModePricing;
   image: string;
   drops: Drop[];
 };
