@@ -37,7 +37,7 @@ export function BetPanel({ betInput, onBetChange, balanceCents, disabled, error 
       <div className="flex gap-2">
         <div className="relative flex-1">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-400 font-black text-base select-none">
-            #
+            $
           </span>
           <input
             id="bet-input"

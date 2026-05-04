@@ -1,24 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 import { User, X } from "lucide-react";
 import { useGameStore } from "../store/useGameStore";
-import {
-  computeLevel,
-  getCurrentLevelXp,
-  XP_PER_LEVEL,
-} from "../lib/types";
+import { getLevelProgress, xpFromQualifyingSpend } from "../lib/types";
 import { formatMoney } from "../lib/format";
 
 export function Profile() {
   const stats = useGameStore((s) => s.stats);
-  const xp = useGameStore((s) => s.xp);
+  const qualifyingSpendCents = useGameStore((s) => s.qualifyingSpendCents);
   const confettiEnabled = useGameStore((s) => s.settings.confettiEnabled);
   const setConfettiEnabled = useGameStore((s) => s.setConfettiEnabled);
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
-  const level = computeLevel(xp);
-  const currentLevelXp = getCurrentLevelXp(xp);
-  const progressPct = (currentLevelXp / XP_PER_LEVEL) * 100;
+  const dollars = qualifyingSpendCents / 100;
+  const { level, nextLevel, requiredDollars, pct } = getLevelProgress(dollars);
+  const xp = xpFromQualifyingSpend(qualifyingSpendCents);
 
   useEffect(() => {
     if (!open) return;
@@ -72,7 +68,7 @@ export function Profile() {
         <div
           role="dialog"
           aria-label="Profil"
-          className="absolute right-0 mt-2 w-[320px] glass-strong rounded-2xl border border-cyan-500/30 shadow-[0_0_40px_rgba(34,211,238,0.18)] p-4 z-50 animate-in fade-in zoom-in-95 duration-150"
+          className="absolute right-0 mt-2 w-[340px] glass-strong rounded-2xl border border-cyan-500/30 shadow-[0_0_40px_rgba(34,211,238,0.18)] p-4 z-50 animate-in fade-in zoom-in-95 duration-150"
         >
           <div className="flex items-start justify-between gap-2 mb-3">
             <div className="min-w-0">
@@ -93,8 +89,8 @@ export function Profile() {
             </button>
           </div>
 
-          {/* Level progress */}
-          <div className="rounded-xl border border-cyan-500/20 bg-slate-950/60 px-3 py-2.5 mb-3">
+          {/* Level progress bar */}
+          <div className="rounded-xl border border-cyan-500/20 bg-slate-950/60 px-3 py-2.5 mb-3 space-y-2">
             <div className="flex items-center gap-2">
               <span
                 className="font-mono text-sm font-black text-cyan-200 w-6 text-center"
@@ -105,26 +101,38 @@ export function Profile() {
               <div
                 className="relative flex-1 h-2.5 rounded-full overflow-hidden bg-slate-900/80 border border-cyan-500/20 shadow-[inset_0_0_8px_rgba(34,211,238,0.1)]"
                 role="progressbar"
-                aria-valuenow={Math.round(progressPct)}
+                aria-valuenow={Math.round(pct)}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-label="Postęp do następnego poziomu"
               >
                 <div
                   className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-500 to-cyan-300 shadow-[0_0_12px_rgba(34,211,238,0.6)] transition-[width] duration-500"
-                  style={{ width: `${progressPct}%` }}
+                  style={{ width: `${pct}%` }}
                 />
               </div>
               <span
                 className="font-mono text-sm font-black text-slate-400 w-6 text-center"
                 title="Następny poziom"
               >
-                {level + 1}
+                {nextLevel}
               </span>
             </div>
-            <p className="text-[11px] font-mono text-slate-400 mt-1.5 text-center">
-              XP: <span className="text-cyan-300 font-bold">{currentLevelXp}</span>
-              /{XP_PER_LEVEL}
+
+            <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
+              <span>
+                Wydano (kwalif.):{" "}
+                <span className="text-cyan-300 font-bold">{formatMoney(qualifyingSpendCents)}</span>
+              </span>
+              {level < 100 && (
+                <span>
+                  Cel: <span className="text-slate-300 font-bold">${requiredDollars.toLocaleString("en-US", { maximumFractionDigits: 0 })}</span>
+                </span>
+              )}
+            </div>
+
+            <p className="text-[11px] font-mono text-slate-400 text-center">
+              XP: <span className="text-cyan-300 font-bold">{xp.toLocaleString()}</span>
             </p>
           </div>
 

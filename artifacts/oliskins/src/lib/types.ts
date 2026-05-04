@@ -64,13 +64,13 @@ export type FreeCase = {
 };
 
 export type InventoryItem = {
-  instanceId: string;     // unique per acquired item
+  instanceId: string;
   dropId: string;
   name: string;
   rarity: Rarity;
   image: string;
   valueCents: number;
-  acquiredAt: number;     // Date.now()
+  acquiredAt: number;
   locked: boolean;
 };
 
@@ -108,16 +108,17 @@ export type OpenFreeCaseResult =
   | { ok: false; reason: "unknown_case" | "locked_level" | "cooldown" };
 
 export type GameState = {
-  balanceCents: number;          // default 1000
-  inventory: InventoryItem[];    // default []
-  inventorySort: InventorySort;  // default "date_new"
+  balanceCents: number;
+  inventory: InventoryItem[];
+  inventorySort: InventorySort;
   stats: Stats;
   lastFreeOpenAt: number | null;
-  xp: number;                    // total XP earned (paid openings only)
+  /** Total qualifying spend in cents. Level is derived from this. */
+  qualifyingSpendCents: number;
   settings: Settings;
 
   addBalanceCents: (delta: number) => void;
-  addXp: (delta: number) => void;
+  addQualifyingSpendCents: (delta: number) => void;
   setConfettiEnabled: (enabled: boolean) => void;
   updateMinigameStats: (delta: {
     played?: number;
@@ -135,8 +136,80 @@ export type GameState = {
 
 export const FREE_CASE_COOLDOWN_MS = 60 * 60 * 1000; // 1h
 
-export const XP_PER_LEVEL = 100;
-export const CENTS_PER_XP = 500; // #5.00 spent = 1 XP
+// ─── Level / Progression System ───────────────────────────────────────────────
+
+/**
+ * Returns the total qualifying spend in dollars required to reach the given level.
+ * Level 1 requires $0. Level 100 requires $15,000,000.
+ *
+ * Phase 1 (L1–20):  linear    0 → $30,000
+ * Phase 2 (L21–70): quadratic $30,000 → $4,500,000
+ * Phase 3 (L71–100): cubic    $4,500,000 → $15,000,000
+ */
+export function getSpendRequiredForLevel(level: number): number {
+  const l = Math.max(1, Math.min(100, Math.floor(level)));
+  if (l <= 1) return 0;
+  if (l <= 20) {
+    return 30000 * (l - 1) / 19;
+  }
+  if (l <= 70) {
+    const t = (l - 20) / 50;
+    return 30000 + 4470000 * t * t;
+  }
+  const u = (l - 70) / 30;
+  return 4500000 + 10500000 * u * u * u;
+}
+
+/**
+ * Returns the current level (1–100) for a given qualifying spend in dollars.
+ */
+export function getLevelFromSpend(dollars: number): number {
+  if (dollars <= 0) return 1;
+  let level = 1;
+  for (let l = 2; l <= 100; l++) {
+    if (dollars >= getSpendRequiredForLevel(l)) {
+      level = l;
+    } else {
+      break;
+    }
+  }
+  return level;
+}
+
+export type LevelProgress = {
+  level: number;
+  nextLevel: number;
+  currentDollars: number;
+  requiredDollars: number;
+  pct: number;
+};
+
+/**
+ * Returns progress info for the current level derived from qualifying spend in dollars.
+ */
+export function getLevelProgress(dollars: number): LevelProgress {
+  const level = getLevelFromSpend(dollars);
+  const nextLevel = Math.min(100, level + 1);
+  const currentLevelRequires = getSpendRequiredForLevel(level);
+  const nextLevelRequires = getSpendRequiredForLevel(nextLevel);
+  const span = nextLevelRequires - currentLevelRequires;
+  const progress = dollars - currentLevelRequires;
+  const pct = level >= 100 ? 100 : span > 0 ? Math.min(100, (progress / span) * 100) : 100;
+  return {
+    level,
+    nextLevel,
+    currentDollars: dollars,
+    requiredDollars: nextLevelRequires,
+    pct,
+  };
+}
+
+/**
+ * XP derived from qualifying spend. 1 dollar spent = 5 XP.
+ */
+export function xpFromQualifyingSpend(qualifyingSpendCents: number): number {
+  return Math.floor((qualifyingSpendCents / 100) * 5);
+}
 
 /** Returns true if a case has valid drops and weights for opening/battles. */
 export function isCaseValid(c: Case): boolean {
@@ -147,19 +220,3 @@ export function isCaseValid(c: Case): boolean {
 }
 
 export const INVALID_CASE_MSG = "Nie można użyć tej skrzynki — błędne dropy (wagi).";
-
-/** Level derived from XP. 100 XP per level. */
-export function computeLevel(xp: number): number {
-  return 1 + Math.floor(Math.max(0, xp) / XP_PER_LEVEL);
-}
-
-/** XP within the current level (0..XP_PER_LEVEL-1). */
-export function getCurrentLevelXp(xp: number): number {
-  return Math.max(0, xp) % XP_PER_LEVEL;
-}
-
-/** XP earned for a paid opening of `totalCostCents`. Floors to integer. */
-export function xpForSpend(totalCostCents: number): number {
-  if (totalCostCents <= 0) return 0;
-  return Math.floor(totalCostCents / CENTS_PER_XP);
-}

@@ -29,7 +29,7 @@ const SLOT_DEFS: SlotDef[] = [
   { color: "gold",  multiplier: 20, label: "Złoty",     count: 1,  fill: "#1c1200", stroke: "#ca8a04", textFill: "#fde047", twText: "text-yellow-300", twBorder: "border-yellow-400/70"},
 ];
 
-const TOTAL_SLOTS = SLOT_DEFS.reduce((s, d) => s + d.count, 0); // 22
+const TOTAL_SLOTS = SLOT_DEFS.reduce((s, d) => s + d.count, 0);
 const SEG_ANGLE = 360 / TOTAL_SLOTS;
 
 function defFor(c: SlotColor) { return SLOT_DEFS.find((d) => d.color === c)!; }
@@ -78,7 +78,6 @@ interface WheelProps {
 function WheelSVG({ slots, rotation, transitioning, winningIdx, winnerColor }: WheelProps) {
   return (
     <div className="relative flex justify-center select-none">
-      {/* Fixed pointer arrow at top */}
       <div
         className="absolute z-10 pointer-events-none"
         style={{ top: 6, left: "50%", transform: "translateX(-50%)" }}
@@ -88,7 +87,6 @@ function WheelSVG({ slots, rotation, transitioning, winningIdx, winnerColor }: W
         </svg>
       </div>
 
-      {/* Rotating wheel */}
       <svg
         width="320"
         height="320"
@@ -102,7 +100,6 @@ function WheelSVG({ slots, rotation, transitioning, winningIdx, winnerColor }: W
           display: "block",
         }}
       >
-        {/* Segments */}
         {slots.map((color, i) => {
           const def = defFor(color);
           const mid = (i + 0.5) * SEG_ANGLE;
@@ -133,7 +130,6 @@ function WheelSVG({ slots, rotation, transitioning, winningIdx, winnerColor }: W
           );
         })}
 
-        {/* Center hub */}
         <circle cx={CX} cy={CY} r={R_INNER} fill="#0a0f1e" stroke="#334155" strokeWidth="2" />
         <text
           x={CX}
@@ -149,7 +145,6 @@ function WheelSVG({ slots, rotation, transitioning, winningIdx, winnerColor }: W
         </text>
       </svg>
 
-      {/* Glowing ring around winning segment (after spin) */}
       {winnerColor && !transitioning && (
         <div
           className="absolute inset-0 rounded-full pointer-events-none"
@@ -170,6 +165,7 @@ type Phase = "idle" | "spinning" | "result";
 export function X20() {
   const balanceCents = useGameStore((s) => s.balanceCents);
   const addBalanceCents = useGameStore((s) => s.addBalanceCents);
+  const addQualifyingSpendCents = useGameStore((s) => s.addQualifyingSpendCents);
   const updateMinigameStats = useGameStore((s) => s.updateMinigameStats);
 
   const [betInput, setBetInput] = useState("");
@@ -183,7 +179,6 @@ export function X20() {
     multiplier: number;
   } | null>(null);
 
-  // Wheel rotation state
   const [wheelSlots, setWheelSlots] = useState<SlotColor[]>(() => buildShuffledWheel());
   const [rotation, setRotation] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
@@ -195,7 +190,6 @@ export function X20() {
 
   const isPlaying = phase === "spinning";
 
-  // Single color selection
   const selectColor = (color: SlotColor) => {
     if (isPlaying) return;
     setBetError(null);
@@ -207,7 +201,7 @@ export function X20() {
     if (!selectedColor) { setBetError("Wybierz kolor przed zakręceniem."); return; }
 
     const betCents = parseBetToCents(betInput);
-    if (!betCents) { setBetError("Podaj prawidłową stawkę (min. #0.01)."); return; }
+    if (!betCents) { setBetError("Podaj prawidłową stawkę (min. $0.01)."); return; }
     if (!canPlaceBet(balanceCents, betCents)) { setBetError("Niewystarczający balans."); return; }
 
     setBetError(null);
@@ -218,7 +212,6 @@ export function X20() {
     setPhase("spinning");
     addBalanceCents(-betCents);
 
-    // Build fresh shuffled wheel
     const newSlots = buildShuffledWheel();
     const winIdx = pickWinnerIndex();
     const landedColor = newSlots[winIdx];
@@ -228,23 +221,16 @@ export function X20() {
 
     setWheelSlots(newSlots);
 
-    // Compute target rotation
-    // Segment i center is at (i+0.5)*SEG_ANGLE degrees clockwise from top in wheel space.
-    // CSS rotate(R) rotates the wheel CW by R, moving segment i's center to (i+0.5)*SEG_ANGLE + R in screen space.
-    // For segment i to be at the top (screen angle 0), we need:
-    //   (winIdx+0.5)*SEG_ANGLE + R ≡ 0 (mod 360)
-    //   R ≡ -(winIdx+0.5)*SEG_ANGLE (mod 360)
     const segCenter = (winIdx + 0.5) * SEG_ANGLE;
     const desiredMod = ((-(segCenter % 360)) + 360) % 360;
     const currentMod = ((baseRotationRef.current % 360) + 360) % 360;
     let diff = (desiredMod - currentMod + 360) % 360;
-    if (diff < 10) diff += 360; // ensure visible rotation even when nearly aligned
+    if (diff < 10) diff += 360;
     const targetRotation = baseRotationRef.current + 7 * 360 + diff;
     baseRotationRef.current = targetRotation;
 
-    // Reset transition, then trigger it
     setTransitioning(false);
-    setRotation(baseRotationRef.current - (7 * 360 + diff)); // same as old value
+    setRotation(baseRotationRef.current - (7 * 360 + diff));
 
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -253,12 +239,15 @@ export function X20() {
       });
     });
 
-    // Resolve after 4s
     setTimeout(() => {
       setTransitioning(false);
       setWinningIdx(winIdx);
       setWinnerColor(landedColor);
-      if (won) addBalanceCents(payoutCents);
+      if (won) {
+        addBalanceCents(payoutCents);
+        // Win: add bet amount to qualifying spend
+        addQualifyingSpendCents(betCents);
+      }
       updateMinigameStats({ played: 1, wageredCents: betCents, profitCents });
       setResult({ landedColor, won, payoutCents, multiplier: def.multiplier });
       phaseRef.current = "result";
@@ -289,7 +278,6 @@ export function X20() {
 
       <div className="glass-strong rounded-2xl border border-cyan-500/25 p-5 sm:p-7 space-y-5">
 
-        {/* Wheel */}
         <WheelSVG
           slots={wheelSlots}
           rotation={rotation}
@@ -298,7 +286,7 @@ export function X20() {
           winnerColor={winnerColor}
         />
 
-        {/* Color selector – single pick */}
+        {/* Color selector */}
         <div>
           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
             Wybierz kolor

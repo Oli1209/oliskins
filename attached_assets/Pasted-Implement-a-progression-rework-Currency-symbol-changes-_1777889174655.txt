@@ -1,0 +1,74 @@
+Implement a progression rework:
+
+Currency symbol changes from # to $ everywhere.
+Replace current XP/level logic with a Level 1–100 system driven by qualifying spend (in cents) following a 3-phase curve.
+Battles and minigames contribute to qualifying spend ONLY when the user wins.
+Remove any clicker XP gains (clicker gives money only, no XP).
+=====================================================
+
+Currency: # -> $
+=====================================================
+Update money formatter to output $X.XX instead of #X.XX.
+Replace UI strings using # to $ across the app (cases, battles, minigames, profile, toasts).
+Keep internal cents unchanged.
+=====================================================
+2) Qualifying spend + XP model
+Add persisted fields:
+
+qualifyingSpendCents: number (default 0)
+xp: number (derived or stored; if stored, keep it consistent)
+Rules:
+
+XP rate: 1$ spent = 5 XP => xp = floor((qualifyingSpendCents / 100) * 5)
+Remove clicker XP entirely.
+Qualifying spend increases only when:
+
+Paid case opening completes successfully (always counts):
+add the actual total cost (including Normal/Boost/Jester multipliers and quantity) to qualifyingSpendCents
+Battle: ONLY if the user wins (winner-takes-all modes):
+add the battle total cost paid by the user to qualifyingSpendCents
+Minigames: ONLY if the user wins:
+add the bet/stake amount (in cents) to qualifyingSpendCents (not payout)
+Ensure no double-counting (idempotent guards, especially for battles claim and minigames resolution).
+
+=====================================================
+3) Level 1–100 curve based on qualifying spend (target 15,000,000$ total)
+Level is derived from qualifyingSpendDollars = qualifyingSpendCents / 100 using this curve:
+
+Phase 1 (L1–20): easy, linear to $30,000 total at L20
+
+SpendRequired(L) = 30000 * (L-1) / 19
+Phase 2 (L21–70): medium, quadratic to $4,500,000 total at L70
+
+t = (L-20) / 50
+SpendRequired(L) = 30000 + 4470000 * t^2
+Phase 3 (L71–100): hard, cubic to $15,000,000 total at L100
+
+u = (L-70) / 30
+SpendRequired(L) = 4500000 + 10500000 * u^3
+Implement helpers:
+
+getSpendRequiredForLevel(level): number (in dollars)
+getLevelFromSpend(dollars): number (find max level where spend >= required; clamp 1..100)
+getLevelProgress(dollars): { level, nextLevel, current, required, pct }
+Level must update live in Profile UI.
+
+=====================================================
+4) Profile UI updates
+Show:
+“Poziom: X”
+Progress bar (glass track + cyan fill) toward next level
+“Wydano (kwalif.): $X.XX”
+“XP: N” (optional) and/or “XP do następnego poziomu”
+Ensure displayed values are consistent with the new model.
+=====================================================
+5) Remove clicker XP
+Remove any clicker XP logic and UI references (no XP gain from clicker).
+Clicker still adds money.
+=====================================================
+Acceptance
+All currency shows $.
+Level is 1..100 and derived from qualifying spend curve.
+Paid cases always add to qualifying spend.
+Battles/minigames add to qualifying spend ONLY when user wins.
+No clicker XP remains.

@@ -41,6 +41,7 @@ function computeMultiplier(safePicks: number, mineCount: MineCount): number {
 export function Mines() {
   const balanceCents = useGameStore((s) => s.balanceCents);
   const addBalanceCents = useGameStore((s) => s.addBalanceCents);
+  const addQualifyingSpendCents = useGameStore((s) => s.addQualifyingSpendCents);
   const updateMinigameStats = useGameStore((s) => s.updateMinigameStats);
 
   // Setup state
@@ -65,7 +66,7 @@ export function Mines() {
   const handleStart = () => {
     if (phase !== "setup") return;
     const betCents = parseBetToCents(betInput);
-    if (!betCents) { setBetError("Podaj prawidłową stawkę (min. #0.01)."); return; }
+    if (!betCents) { setBetError("Podaj prawidłową stawkę (min. $0.01)."); return; }
     if (!canPlaceBet(balanceCents, betCents)) { setBetError("Niewystarczający balans."); return; }
 
     setBetError(null);
@@ -85,15 +86,13 @@ export function Mines() {
     if (phase !== "playing") return;
     setTiles((prev) => {
       if (prev[idx] !== "hidden") return prev;
-      return prev; // will be updated after mine check below
+      return prev;
     });
 
-    // Can't use functional update with mines easily, so handle outside:
     setTiles((prev) => {
       if (prev[idx] !== "hidden") return prev;
       const next = [...prev];
       if (mines.has(idx)) {
-        // Reveal hit mine + all mines
         for (let i = 0; i < GRID_SIZE; i++) {
           if (mines.has(i)) next[i] = i === idx ? "mine" : "revealed_mine";
         }
@@ -120,6 +119,8 @@ export function Mines() {
     addBalanceCents(payout);
     const profit = payout - roundBetCents;
     updateMinigameStats({ profitCents: profit });
+    // Win: add bet amount to qualifying spend
+    addQualifyingSpendCents(roundBetCents);
     // Reveal all mines
     setTiles((prev) => {
       const next = [...prev];

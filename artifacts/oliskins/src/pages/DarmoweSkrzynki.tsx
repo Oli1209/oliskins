@@ -3,15 +3,15 @@ import { Lock, Gift, Clock, Check } from "lucide-react";
 import { CaseImg } from "../components/CaseImg";
 import { useFreeCaseStore } from "../store/useFreeCaseStore";
 import { useGameStore } from "../store/useGameStore";
-import { computeLevel } from "../lib/types";
+import { getLevelFromSpend } from "../lib/types";
 import { GlassCard } from "../components/GlassCard";
 import { rarityColors } from "../lib/rarity";
 import { useFreeCooldown, formatCooldown } from "../hooks/useFreeCooldown";
 
 export function DarmoweSkrzynki() {
   const freeCases = useFreeCaseStore((s) => s.freeCases);
-  const xp = useGameStore((s) => s.xp);
-  const level = computeLevel(xp);
+  const qualifyingSpendCents = useGameStore((s) => s.qualifyingSpendCents);
+  const level = getLevelFromSpend(qualifyingSpendCents / 100);
   const { msLeft, ready } = useFreeCooldown();
 
   // Sort by requiredLevel ascending so tiers appear in order

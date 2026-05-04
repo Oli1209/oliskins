@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { X, Gift, Lock } from "lucide-react";
-import { Case, InventoryItem, computeLevel } from "../lib/types";
+import { Case, InventoryItem, getLevelFromSpend } from "../lib/types";
 import { useGameStore } from "../store/useGameStore";
 import { useFreeCaseStore } from "../store/useFreeCaseStore";
 import { formatMoney } from "../lib/format";
@@ -19,11 +19,11 @@ type RollResult = {
 function FreeCaseModalInner({ caseData }: { caseData: Case }) {
   const navigate = useNavigate();
   const openFreeCase = useGameStore((s) => s.openFreeCase);
-  const xp = useGameStore((s) => s.xp);
+  const qualifyingSpendCents = useGameStore((s) => s.qualifyingSpendCents);
 
   const tier = caseData.tier ?? 1;
   const requiredLevel = caseData.requiredLevel ?? 1;
-  const level = computeLevel(xp);
+  const level = getLevelFromSpend(qualifyingSpendCents / 100);
   const isLockedByLevel = level < requiredLevel;
 
   const { msLeft, ready } = useFreeCooldown();

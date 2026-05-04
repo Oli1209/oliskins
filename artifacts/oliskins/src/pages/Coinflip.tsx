@@ -14,6 +14,7 @@ const FLIP_DURATION_MS = 1200;
 export function Coinflip() {
   const balanceCents = useGameStore((s) => s.balanceCents);
   const addBalanceCents = useGameStore((s) => s.addBalanceCents);
+  const addQualifyingSpendCents = useGameStore((s) => s.addQualifyingSpendCents);
   const updateMinigameStats = useGameStore((s) => s.updateMinigameStats);
 
   const [betInput, setBetInput] = useState("");
@@ -30,7 +31,7 @@ export function Coinflip() {
 
     const betCents = parseBetToCents(betInput);
     if (!betCents) {
-      setBetError("Podaj prawidłową stawkę (min. #0.01).");
+      setBetError("Podaj prawidłową stawkę (min. $0.01).");
       return;
     }
     if (!canPlaceBet(balanceCents, betCents)) {
@@ -43,7 +44,6 @@ export function Coinflip() {
     phaseRef.current = "flipping";
     setPhase("flipping");
 
-    // Deduct immediately
     addBalanceCents(-betCents);
 
     const landedSide: Side = Math.random() < 0.5 ? "heads" : "tails";
@@ -51,7 +51,11 @@ export function Coinflip() {
     const { payoutCents, profitCents } = resolveBet(betCents, won ? 2 : 0);
 
     setTimeout(() => {
-      if (won) addBalanceCents(payoutCents);
+      if (won) {
+        addBalanceCents(payoutCents);
+        // Win: add bet amount to qualifying spend
+        addQualifyingSpendCents(betCents);
+      }
       updateMinigameStats({ played: 1, wageredCents: betCents, profitCents });
       setResult({ side: landedSide, won, payoutCents });
       phaseRef.current = "result";

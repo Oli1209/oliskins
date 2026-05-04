@@ -10,15 +10,12 @@ import { formatMoney } from "../lib/format";
 
 const TICK_MS = 100;
 
-// Distribution: median ~x1.88, mostly 1.60–2.20, rare 3–10x
-// P(crash < 1.60) ≈ 17%  |  P(crash > 3.0) ≈ 6.5%
 function generateCrashAt(): number {
   const u = Math.random();
   const raw = 1.5 + (-Math.log(Math.max(u, 0.001))) * 0.55;
   return Math.max(1.10, Math.min(10, raw));
 }
 
-// Slow curve: x1.0 at t=0, ~x2.0 at t≈8s, ~x4.0 at t≈18s
 function computeMultiplier(elapsedMs: number): number {
   const t = elapsedMs / 1000;
   return 1.0 + t * 0.10 + t * t * 0.005;
@@ -33,6 +30,7 @@ type Phase = "setup" | "running" | "cashed" | "crashed";
 export function Crash() {
   const balanceCents = useGameStore((s) => s.balanceCents);
   const addBalanceCents = useGameStore((s) => s.addBalanceCents);
+  const addQualifyingSpendCents = useGameStore((s) => s.addQualifyingSpendCents);
   const updateMinigameStats = useGameStore((s) => s.updateMinigameStats);
 
   const [betInput, setBetInput] = useState("");
@@ -53,7 +51,6 @@ export function Crash() {
 
   const isRunning = phase === "running";
 
-  // Cleanup on unmount
   useEffect(() => () => { if (tickRef.current) clearInterval(tickRef.current); }, []);
 
   const stopTick = () => {
@@ -64,7 +61,7 @@ export function Crash() {
     if (phaseRef.current !== "setup") return;
 
     const betCents = parseBetToCents(betInput);
-    if (!betCents) { setBetError("Podaj prawidłową stawkę (min. #0.01)."); return; }
+    if (!betCents) { setBetError("Podaj prawidłową stawkę (min. $0.01)."); return; }
     if (!canPlaceBet(balanceCents, betCents)) { setBetError("Niewystarczający balans."); return; }
 
     setBetError(null);
@@ -108,6 +105,8 @@ export function Crash() {
     addBalanceCents(payout);
     const profit = payout - roundBetRef.current;
     updateMinigameStats({ profitCents: profit });
+    // Win: add bet amount to qualifying spend
+    addQualifyingSpendCents(roundBetRef.current);
     setResultPayout(payout);
     setCurrentMult(mult);
     phaseRef.current = "cashed";
@@ -123,9 +122,8 @@ export function Crash() {
     cashoutBusyRef.current = false;
   };
 
-  // Plane vertical position: rises from 70% to 15% of display height as mult grows
   const planeProgress = Math.min(1, (currentMult - 1) / 4);
-  const planeY = 70 - planeProgress * 55; // percent top
+  const planeY = 70 - planeProgress * 55;
 
   const multColor =
     phase === "crashed"
@@ -159,7 +157,6 @@ export function Crash() {
               : "border-cyan-500/20 bg-slate-950/50"
           }`}
         >
-          {/* Grid lines for depth */}
           <svg className="absolute inset-0 w-full h-full opacity-10 pointer-events-none" preserveAspectRatio="none">
             {[20, 40, 60, 80].map((p) => (
               <line key={p} x1="0" y1={`${p}%`} x2="100%" y2={`${p}%`} stroke="currentColor" strokeWidth="1" />
@@ -169,7 +166,6 @@ export function Crash() {
             ))}
           </svg>
 
-          {/* Rocket / plane */}
           {phase !== "setup" && (
             <div
               className="absolute text-3xl transition-none pointer-events-none select-none"
@@ -185,7 +181,6 @@ export function Crash() {
             </div>
           )}
 
-          {/* Big multiplier */}
           <div className="text-center z-10">
             {phase === "setup" ? (
               <p className="text-slate-500 text-sm uppercase tracking-[0.3em] font-bold">

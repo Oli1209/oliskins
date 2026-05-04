@@ -6,8 +6,7 @@ import {
   Settings,
   Stats,
   FREE_CASE_COOLDOWN_MS,
-  CENTS_PER_XP,
-  computeLevel,
+  getLevelFromSpend,
 } from "../lib/types";
 import { migrateRarity } from "../lib/rarity";
 import { useCaseStore } from "./useCaseStore";
@@ -39,7 +38,7 @@ export const useGameStore = create<GameState>()(
       inventorySort: "date_new",
       stats: { ...DEFAULT_STATS },
       lastFreeOpenAt: null,
-      xp: 0,
+      qualifyingSpendCents: 0,
       settings: { ...DEFAULT_SETTINGS },
 
       addBalanceCents: (delta) =>
@@ -47,11 +46,11 @@ export const useGameStore = create<GameState>()(
           balanceCents: Math.max(0, state.balanceCents + delta),
         })),
 
-      addXp: (delta) =>
+      addQualifyingSpendCents: (delta) =>
         set((state) => {
           const safe = Math.floor(delta);
           if (!isFinite(safe) || safe <= 0) return state;
-          return { xp: state.xp + safe };
+          return { qualifyingSpendCents: state.qualifyingSpendCents + safe };
         }),
 
       setConfettiEnabled: (enabled) =>
@@ -76,7 +75,7 @@ export const useGameStore = create<GameState>()(
           inventorySort: "date_new",
           stats: { ...DEFAULT_STATS },
           lastFreeOpenAt: null,
-          xp: 0,
+          qualifyingSpendCents: 0,
           settings: { ...DEFAULT_SETTINGS },
         }),
 
@@ -107,27 +106,18 @@ export const useGameStore = create<GameState>()(
           locked: false,
         };
 
-        set((s) => {
-          const prevSpent = s.stats.totalSpentCents;
-          const newSpent = prevSpent + cost;
-          // Accrue 1 XP per CENTS_PER_XP cumulatively spent. Computing the
-          // delta against the previous total ensures correct XP across
-          // multi-open batches and Boost-doubled costs.
-          const xpDelta =
-            Math.floor(newSpent / CENTS_PER_XP) -
-            Math.floor(prevSpent / CENTS_PER_XP);
-          return {
-            balanceCents: s.balanceCents - cost,
-            inventory: [...s.inventory, newItem],
-            xp: s.xp + xpDelta,
-            stats: {
-              ...s.stats,
-              casesOpened: s.stats.casesOpened + 1,
-              totalSpentCents: newSpent,
-              totalWonCents: s.stats.totalWonCents + drop.valueCents,
-            },
-          };
-        });
+        set((s) => ({
+          balanceCents: s.balanceCents - cost,
+          inventory: [...s.inventory, newItem],
+          // Paid case openings always add to qualifying spend
+          qualifyingSpendCents: s.qualifyingSpendCents + cost,
+          stats: {
+            ...s.stats,
+            casesOpened: s.stats.casesOpened + 1,
+            totalSpentCents: s.stats.totalSpentCents + cost,
+            totalWonCents: s.stats.totalWonCents + drop.valueCents,
+          },
+        }));
 
         return { ok: true, item: newItem };
       },
@@ -137,7 +127,7 @@ export const useGameStore = create<GameState>()(
         const caseData = useFreeCaseStore.getState().freeCases.find((c) => c.id === caseId);
         if (!caseData) return { ok: false, reason: "unknown_case" };
 
-        const level = computeLevel(state.xp);
+        const level = getLevelFromSpend(state.qualifyingSpendCents / 100);
         const requiredLevel = caseData.requiredLevel ?? 1;
         if (level < requiredLevel)
           return { ok: false, reason: "locked_level" };
@@ -221,9 +211,9 @@ export const useGameStore = create<GameState>()(
     }),
     {
       name: "oliskins_state_v1",
-      version: 6,
+      version: 7,
       migrate: (persisted, version) => {
-        const state = (persisted ?? {}) as Partial<GameState>;
+        const state = (persisted ?? {}) as Partial<GameState> & { xp?: number };
         if (version < 1) {
           state.inventory = (state.inventory ?? []).map((it) => ({
             ...it,
@@ -235,12 +225,6 @@ export const useGameStore = create<GameState>()(
           state.stats = { ...DEFAULT_STATS, ...(state.stats ?? {}) };
           state.lastFreeOpenAt = state.lastFreeOpenAt ?? null;
         }
-        if (version < 3) {
-          if (state.xp == null) {
-            const spent = state.stats?.totalSpentCents ?? 0;
-            state.xp = Math.floor(spent / CENTS_PER_XP);
-          }
-        }
         if (version < 4) {
           state.settings = { ...DEFAULT_SETTINGS, ...(state.settings ?? {}) };
         }
@@ -248,11 +232,17 @@ export const useGameStore = create<GameState>()(
           state.stats = { ...DEFAULT_STATS, ...(state.stats ?? {}) };
         }
         if (version < 6) {
-          // Migrate old rarity keys to CS-style keys in inventory
           state.inventory = (state.inventory ?? []).map((it) => ({
             ...it,
             rarity: migrateRarity(it.rarity as string),
           }));
+        }
+        if (version < 7) {
+          // Migrate old xp-based progression to qualifyingSpendCents.
+          // Old qualifying spend was purely from paid case openings = totalSpentCents.
+          state.qualifyingSpendCents = state.stats?.totalSpentCents ?? 0;
+          // Remove legacy xp field
+          delete state.xp;
         }
         return state as GameState;
       },

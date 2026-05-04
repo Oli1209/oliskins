@@ -15,6 +15,7 @@ const SHUFFLE_INTERVAL_MS = 80;
 export function Dice() {
   const balanceCents = useGameStore((s) => s.balanceCents);
   const addBalanceCents = useGameStore((s) => s.addBalanceCents);
+  const addQualifyingSpendCents = useGameStore((s) => s.addQualifyingSpendCents);
   const updateMinigameStats = useGameStore((s) => s.updateMinigameStats);
 
   const [betInput, setBetInput] = useState("");
@@ -53,7 +54,7 @@ export function Dice() {
       return;
     }
     const betCents = parseBetToCents(betInput);
-    if (!betCents) { setBetError("Podaj prawidłową stawkę (min. #0.01)."); return; }
+    if (!betCents) { setBetError("Podaj prawidłową stawkę (min. $0.01)."); return; }
     if (!canPlaceBet(balanceCents, betCents)) { setBetError("Niewystarczający balans."); return; }
 
     setBetError(null);
@@ -67,7 +68,6 @@ export function Dice() {
     const won = rolled === selectedNumber;
     const { payoutCents, profitCents } = resolveBet(betCents, won ? 6 : 0);
 
-    // Shuffle animation
     shuffleRef.current = window.setInterval(() => {
       const rand = Math.floor(Math.random() * 6);
       setDisplayFace(DICE_FACES[rand]);
@@ -76,7 +76,11 @@ export function Dice() {
     window.setTimeout(() => {
       stopShuffle();
       setDisplayFace(DICE_FACES[rolled - 1]);
-      if (won) addBalanceCents(payoutCents);
+      if (won) {
+        addBalanceCents(payoutCents);
+        // Win: add bet amount to qualifying spend
+        addQualifyingSpendCents(betCents);
+      }
       updateMinigameStats({ played: 1, wageredCents: betCents, profitCents });
       setResult({ rolled, won, payoutCents });
       phaseRef.current = "result";

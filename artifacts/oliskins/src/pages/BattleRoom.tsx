@@ -617,7 +617,7 @@ export function BattleRoom() {
   const navigate = useNavigate();
 
   const { battles, addBot, removeBot, startBattle, completeBattle, claimReward, deleteBattle } = useBattleStore();
-  const { addBalanceCents } = useGameStore();
+  const { addBalanceCents, addQualifyingSpendCents } = useGameStore();
 
   const battle = battles.find((b) => b.id === id);
   const result = battle?.result ?? null;
@@ -917,6 +917,11 @@ export function BattleRoom() {
     if (battle.result.rewardStatus !== "unclaimed") {
       setShowLootModal(false);
       return;
+    }
+
+    // Add qualifying spend only when this user won the battle (idempotent — guarded by rewardStatus check above)
+    if (userWon) {
+      addQualifyingSpendCents(computeTotalCostCents(battle.cases));
     }
 
     const pending = computePendingRewards(battle);

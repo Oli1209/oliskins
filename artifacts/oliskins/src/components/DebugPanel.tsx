@@ -4,13 +4,13 @@ import { useGameStore } from "../store/useGameStore";
 
 export function DebugButton() {
   const addBalanceCents = useGameStore((s) => s.addBalanceCents);
-  const addXp = useGameStore((s) => s.addXp);
+  const addQualifyingSpendCents = useGameStore((s) => s.addQualifyingSpendCents);
 
   const [open, setOpen] = useState(false);
   const [moneyValue, setMoneyValue] = useState("");
   const [moneyError, setMoneyError] = useState(false);
-  const [xpValue, setXpValue] = useState("");
-  const [xpError, setXpError] = useState(false);
+  const [spendValue, setSpendValue] = useState("");
+  const [spendError, setSpendError] = useState(false);
 
   const ref = useRef<HTMLDivElement>(null);
 
@@ -33,12 +33,14 @@ export function DebugButton() {
     setMoneyValue("");
   };
 
-  const handleAddXp = () => {
-    const parsed = parseInt(xpValue, 10);
-    if (!isFinite(parsed) || parsed <= 0) { setXpError(true); return; }
-    addXp(parsed);
-    setXpError(false);
-    setXpValue("");
+  const handleAddSpend = () => {
+    const parsed = parseFloat(spendValue.replace(",", "."));
+    if (!isFinite(parsed) || parsed <= 0) { setSpendError(true); return; }
+    const cents = Math.round(parsed * 100);
+    if (cents <= 0) { setSpendError(true); return; }
+    addQualifyingSpendCents(cents);
+    setSpendError(false);
+    setSpendValue("");
   };
 
   return (
@@ -52,9 +54,9 @@ export function DebugButton() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 z-[200] w-44 glass-strong rounded-xl border border-slate-700/40 shadow-2xl p-3 space-y-3">
+        <div className="absolute right-0 top-full mt-2 z-[200] w-48 glass-strong rounded-xl border border-slate-700/40 shadow-2xl p-3 space-y-3">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 mb-1.5">Dodaj #</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 mb-1.5">Dodaj $</p>
             <input
               type="number"
               inputMode="decimal"
@@ -78,25 +80,25 @@ export function DebugButton() {
           <div className="h-px bg-slate-700/40" />
 
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 mb-1.5">Dodaj XP</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 mb-1.5">Wydatki kwalif. ($)</p>
             <input
               type="number"
-              inputMode="numeric"
+              inputMode="decimal"
               step="1"
               min="1"
               placeholder="np. 100"
-              value={xpValue}
-              onChange={(e) => { setXpValue(e.target.value); if (xpError) setXpError(false); }}
-              onKeyDown={(e) => { if (e.key === "Enter") handleAddXp(); }}
+              value={spendValue}
+              onChange={(e) => { setSpendValue(e.target.value); if (spendError) setSpendError(false); }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleAddSpend(); }}
               className="w-full px-2 py-1.5 mb-1.5 rounded-md bg-slate-950/70 border border-cyan-500/20 text-slate-100 text-xs font-mono focus:outline-none focus:border-cyan-400/60"
             />
             <button
-              onClick={handleAddXp}
+              onClick={handleAddSpend}
               className="w-full px-3 py-1.5 rounded-md bg-cyan-500/20 border border-cyan-500/50 text-cyan-200 text-xs font-semibold hover:bg-cyan-400/30 transition-colors"
             >
-              Dodaj XP
+              Dodaj
             </button>
-            {xpError && <p className="text-red-400/90 text-[10px] mt-1">Nieprawidłowa wartość</p>}
+            {spendError && <p className="text-red-400/90 text-[10px] mt-1">Nieprawidłowa wartość</p>}
           </div>
         </div>
       )}
