@@ -2,8 +2,9 @@ import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft, Plus, Trash2, Copy, Check, Upload, Wrench, PackagePlus, Shuffle,
-  CreditCard, Gift, AlertTriangle,
+  CreditCard, Gift, AlertTriangle, Download, Send, XCircle,
 } from "lucide-react";
+import { buildDatasetV1, downloadJson } from "../lib/datasetExport";
 import { CaseImg } from "../components/CaseImg";
 import { useCaseStore } from "../store/useCaseStore";
 import { useFreeCaseStore } from "../store/useFreeCaseStore";
@@ -171,7 +172,7 @@ function DropRow({
       {/* Wartość */}
       <td className="px-2 py-1.5 min-w-[90px]">
         <div className="relative">
-          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-cyan-400 text-[10px] font-bold">#</span>
+          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-cyan-400 text-[10px] font-bold">$</span>
           <input
             type="number" min="0" step="0.01"
             value={centsInput(drop.valueCents)}
@@ -411,9 +412,9 @@ function CaseEditor({ caseId, onDeselect, allCases, onUpdate, onDelete, caseType
 
           {caseType === "paid" ? (
             <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Cena (w #) *</label>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Cena ($) *</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-400 text-sm font-bold">#</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-400 text-sm font-bold">$</span>
                 <input type="number" min="0" step="0.01"
                   value={centsInput(draft.priceCents)}
                   onChange={(e) => setDraft((p) => ({ ...p, priceCents: parseCents(e.target.value) }))}
@@ -652,7 +653,7 @@ function CaseEditor({ caseId, onDeselect, allCases, onUpdate, onDelete, caseType
             <thead>
               <tr className="border-b border-slate-800/60 bg-slate-950/40">
                 {[
-                  "Nazwa", "Rzadkość", "Wartość (#)",
+                  "Nazwa", "Rzadkość", "Wartość ($)",
                   editMode === "pct" ? "Szansa %" : "Waga",
                   "Obraz URL",
                   editMode === "pct" ? "Waga (akt.)" : "Szansa",
@@ -764,12 +765,41 @@ export function EdytorSkrzynek() {
   const [importOk, setImportOk] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Publikacja state
+  const [publishCopied, setPublishCopied] = useState(false);
+  const [publishDownloaded, setPublishDownloaded] = useState(false);
+  const [publishErrors, setPublishErrors] = useState<string[] | null>(null);
+
   const isPaid = activeTab === "paid";
   const cases = isPaid ? paidStore.paidCases : freeStore.freeCases;
   const addCase = isPaid ? paidStore.addCase : freeStore.addCase;
   const updateCase = isPaid ? paidStore.updateCase : freeStore.updateCase;
   const deleteCase = isPaid ? paidStore.deleteCase : freeStore.deleteCase;
   const importCases = isPaid ? paidStore.importCases : freeStore.importCases;
+
+  // ── Publish helpers ──────────────────────────────────────────────────────
+
+  const buildPublishDataset = () =>
+    buildDatasetV1(paidStore.paidCases, freeStore.freeCases);
+
+  const handlePublishCopy = () => {
+    setPublishErrors(null);
+    const result = buildPublishDataset();
+    if (!result.ok) { setPublishErrors(result.errors); return; }
+    navigator.clipboard.writeText(result.json).then(() => {
+      setPublishCopied(true);
+      setTimeout(() => setPublishCopied(false), 2200);
+    });
+  };
+
+  const handlePublishDownload = () => {
+    setPublishErrors(null);
+    const result = buildPublishDataset();
+    if (!result.ok) { setPublishErrors(result.errors); return; }
+    downloadJson(result.json, "dataset.json");
+    setPublishDownloaded(true);
+    setTimeout(() => setPublishDownloaded(false), 2200);
+  };
 
   const handleTabChange = (tab: CaseType) => {
     setActiveTab(tab);
@@ -921,6 +951,59 @@ export function EdytorSkrzynek() {
           >
             <Upload className="w-3.5 h-3.5" /> Importuj
           </button>
+        </div>
+
+        {/* Publikacja — canonical v1 dataset */}
+        <div className="px-5 py-4 border-t border-slate-800/40 space-y-3 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <Send className="w-3 h-3 text-violet-400" />
+            <p className="text-[10px] font-bold uppercase tracking-wider text-violet-400/80">
+              Publikacja · Dataset v1
+            </p>
+          </div>
+          <p className="text-[10px] text-slate-500 leading-snug">
+            Eksportuje <span className="text-slate-300 font-semibold">wszystkie skrzynki</span> (płatne + darmowe) jako kanoniczny JSON z walidacją Zod, gotowy do użycia w Roblox.
+          </p>
+
+          <button
+            type="button"
+            onClick={handlePublishCopy}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-violet-500/40 bg-violet-500/10 text-violet-300 text-xs font-bold hover:bg-violet-500/20 transition-colors"
+          >
+            {publishCopied
+              ? <><Check className="w-3.5 h-3.5 text-emerald-400" /> Skopiowano!</>
+              : <><Copy className="w-3.5 h-3.5" /> Kopiuj dataset (JSON)</>
+            }
+          </button>
+
+          <button
+            type="button"
+            onClick={handlePublishDownload}
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-xl border border-violet-500/40 bg-violet-500/10 text-violet-300 text-xs font-bold hover:bg-violet-500/20 transition-colors"
+          >
+            {publishDownloaded
+              ? <><Check className="w-3.5 h-3.5 text-emerald-400" /> Pobrano!</>
+              : <><Download className="w-3.5 h-3.5" /> Pobierz dataset.json</>
+            }
+          </button>
+
+          {publishErrors && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-3 space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider">
+                  Błąd walidacji — popraw dane przed eksportem:
+                </p>
+              </div>
+              <ul className="space-y-0.5">
+                {publishErrors.map((err, i) => (
+                  <li key={i} className="text-[10px] text-red-300/90 font-mono leading-snug">
+                    · {err}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </aside>
 

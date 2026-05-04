@@ -1,0 +1,57 @@
+Add a “Publish Dataset v1” feature to the Case Builder that exports a canonical, Roblox-friendly JSON format for paid cases (and optionally free cases), with strict versioning. Keep existing gameplay unchanged.
+
+Goals:
+
+Provide a single canonical JSON schema that can be reused in Roblox (server-side RNG).
+Export must be deterministic and stable across app versions.
+=====================================================
+
+Define canonical dataset schema (v1)
+=====================================================
+Create src/data/datasetSchema.ts (Zod) describing:
+schemaVersion: 1
+currency: "$"
+generatedAt (timestamp)
+paidCases: CaseV1[]
+freeCases: CaseV1[] (optional, include if available)
+CaseV1:
+
+id: string
+name: string
+description: string
+priceCents: number
+image: string (Roblox UI ImageLabel URL or placeholder string)
+requiredLevel?: number (for gated cases like LVL 10 Case etc., optional)
+modeAvailability?: { boostEnabled: boolean; jesterEnabled: boolean } (paid only)
+modePricing?: { boostMult: number; jesterMult: number } (paid only)
+drops: DropV1[]
+DropV1:
+
+id: string
+name: string
+rarity: <CS rarity keys>
+valueCents: number
+weight: number
+image: string (UI image URL)
+=====================================================
+2) Add “Publish” actions in the editor
+In the editor page add a section “Publikacja” with buttons:
+
+“Kopiuj dataset (JSON)” -> copies canonical JSON to clipboard
+“Pobierz dataset.json” -> triggers a download of a JSON file
+Export behavior:
+
+Validate current cases with Zod before exporting.
+If invalid, show readable Polish error and do not export.
+=====================================================
+3) Determinism / stability
+Sort exported arrays deterministically:
+cases sorted by id
+drops sorted by id
+Ensure no transient UI-only fields are exported.
+=====================================================
+Acceptance
+Export produces a stable JSON with schemaVersion: 1.
+JSON validates against Zod schema.
+Data is sorted deterministically.
+Works for Roblox usage (image fields are plain strings, no web-only constructs).
