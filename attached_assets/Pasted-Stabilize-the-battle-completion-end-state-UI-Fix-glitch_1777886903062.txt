@@ -1,0 +1,42 @@
+Stabilize the battle completion/end-state UI. Fix glitches where in-progress UI overlaps with end-state UI (winner card showing both), remove any automatic exit from the end screen, and make end animations calmer/slower. Do not change battle outcome logic.
+
+Requirements:
+
+Fix end-state UI overlap (critical visual bug)
+Ensure that once battle status becomes completed, the in-progress components (reels, “Przygotowanie…”, step UI) are unmounted/hidden and cannot render under the end overlays.
+
+Implement a clear render switch based on a single source of truth (e.g. battlePhase: 'waiting'|'countdown'|'in_progress'|'completed').
+
+The winner/loser overlays must render on a clean completed layout, not on top of the rolling layout.
+
+No auto-exit from end UI
+Do NOT automatically navigate away or close the end screen after completion.
+
+Keep the user on the battle end screen until they explicitly click a button (e.g. “Wróć do bitew”).
+
+If you currently auto-remove completed battles, delay removal until the user acknowledges (see next point).
+
+Calmer end animations
+Slow down end-state transitions:
+use longer durations (~600–900ms) with gentle easing
+Reduce chaotic motion:
+one subtle winner highlight + optional confetti (if enabled), no rapid flashes
+
+losers: subtle red fade + X, no shaking
+
+Completed battle lifecycle (compatible with “active list” cleanup)
+Keep completed battles out of “Aktywne bitwy”, but do not hard-delete them immediately if the user is currently viewing the end screen.
+Implement one of:
+archived flag, or
+
+remove from list only after user clicks “Zamknij/Wróć”.
+
+Ensure winner popup timing doesn’t break UI
+If user won and a loot popup is shown after a delay, ensure it does not re-trigger or re-mount the in-progress layout.
+Guard delayed popup with a boolean so it triggers once.
+Acceptance:
+
+No end-state overlap glitches (winner tile shows only end UI).
+No automatic leaving the end screen.
+End animations are smoother, slower, and less chaotic.
+Completed battles cleanup works without breaking the end screen.

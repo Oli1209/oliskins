@@ -69,8 +69,8 @@ function BattleAnimStyles() {
   return (
     <style>{`
       @keyframes cfFall{0%{transform:translateY(-10px) rotate(0);opacity:1}100%{transform:translateY(105vh) rotate(700deg);opacity:0}}
-      @keyframes winnerIn{0%{opacity:0;transform:scale(0.88)}60%{transform:scale(1.04)}100%{opacity:1;transform:scale(1)}}
-      @keyframes loserIn{0%{opacity:0}100%{opacity:1}}
+      @keyframes winnerIn{0%{opacity:0;transform:scale(0.9)}60%{transform:scale(1.02)}100%{opacity:1;transform:scale(1)}}
+      @keyframes loserIn{0%{opacity:0}100%{opacity:0.9}}
       @keyframes dropsIn{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:translateY(0)}}
     `}</style>
   );
@@ -163,10 +163,10 @@ function TopBar({ battle }: { battle: Battle }) {
 
 function TiebreakBanner({ names }: { names: string[] }) {
   return (
-    <div className="glass-strong rounded-2xl border border-amber-400/50 bg-amber-400/5 p-5 text-center animate-pulse">
+    <div className="glass-strong rounded-2xl border border-amber-400/40 bg-amber-400/5 p-5 text-center">
       <Swords className="w-8 h-8 text-amber-400 mx-auto mb-2" />
       <p className="text-xl font-black text-amber-300">Remis — losowanie zwycięzcy…</p>
-      <p className="text-sm text-amber-400/70 mt-1">{names.join(" vs ")}</p>
+      <p className="text-sm text-amber-400/60 mt-1">{names.join(" vs ")}</p>
     </div>
   );
 }
@@ -304,7 +304,9 @@ function ParticipantColumn({
   const currentTotal = revealedDrops.reduce((s, d) => s + d.valueCents, 0);
   const team = isTeams ? teamOf(slotIndex) : null;
   const mode = battle.mode;
-  const isDone = battlePhase === "done";
+  // Use both local phase AND store status so the done layout never
+  // flickers on when mounting on an already-completed battle.
+  const isDone = battlePhase === "done" || battle.status === "completed";
 
   const safeStep = animStep >= 0 ? animStep : 0;
   const currentStep = stepList[safeStep];
@@ -354,7 +356,7 @@ function ParticipantColumn({
           className="absolute inset-0 rounded-2xl z-10 pointer-events-none flex flex-col items-center justify-center gap-2"
           style={{
             background: "rgba(16,185,129,0.13)",
-            animation: "winnerIn 0.45s cubic-bezier(0.22,1,0.36,1) forwards",
+            animation: "winnerIn 0.75s cubic-bezier(0.22,1,0.36,1) forwards",
           }}
         >
           <Trophy
@@ -378,8 +380,8 @@ function ParticipantColumn({
         <div
           className="absolute inset-0 rounded-2xl z-10 pointer-events-none flex items-center justify-center"
           style={{
-            background: "rgba(127,29,29,0.42)",
-            animation: "loserIn 0.55s ease-out forwards",
+            background: "rgba(127,29,29,0.38)",
+            animation: "loserIn 0.8s ease-out forwards",
           }}
         >
           <XIcon className="w-16 h-16 text-red-400/65" strokeWidth={1.5} />
@@ -497,7 +499,7 @@ function DropsShowcase({
   return (
     <div
       className="glass-strong rounded-2xl border border-slate-700/30 p-4 space-y-4"
-      style={{ animation: "dropsIn 0.5s ease-out 0.3s both" }}
+      style={{ animation: "dropsIn 0.8s ease-out 0.5s both" }}
     >
       <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
         Zdobyte przedmioty
@@ -620,14 +622,27 @@ export function BattleRoom() {
   const result = battle?.result ?? null;
 
   // ── Phase & animation state ──────────────────────────────────────
-  const [battlePhase, setBattlePhase] = useState<BattlePhase>("idle");
-  const [animStep, setAnimStep] = useState(-1);
-  const [revealedCount, setRevealedCount] = useState(0);
+  // Initialise phase/counts directly from store so there is NEVER a frame
+  // where a completed battle renders with the in-progress layout.
+  const [battlePhase, setBattlePhase] = useState<BattlePhase>(() =>
+    battle?.status === "completed" ? "done" : "idle"
+  );
+  const [animStep, setAnimStep] = useState(() => {
+    if (battle?.status !== "completed") return -1;
+    const steps = buildStepList(battle, useCaseStore.getState().paidCases).length;
+    return steps > 0 ? steps - 1 : -1;
+  });
+  const [revealedCount, setRevealedCount] = useState(() => {
+    if (battle?.status !== "completed") return 0;
+    return buildStepList(battle, useCaseStore.getState().paidCases).length;
+  });
   const [spinning, setSpinning] = useState(false);
   const [tiebreakHighlightId, setTiebreakHighlightId] = useState<string | null>(null);
   const [showLootModal, setShowLootModal] = useState(false);
   const animStarted = useRef(false);
   const animCleanupRef = useRef<(() => void) | null>(null);
+  /** Guards against loot modal firing more than once per session */
+  const lootModalFiredRef = useRef(false);
 
   // ── Countdown ────────────────────────────────────────────────────
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -761,15 +776,13 @@ export function BattleRoom() {
   }, [participantCount]); // eslint-disable-line
 
   // ── Mount: if already completed, skip animation ──────────────────
+  // Phase/counts are now initialised from store in useState so we only
+  // need to mark animStarted and conditionally open the loot modal.
   useEffect(() => {
     if (battle?.status === "completed") {
       animStarted.current = true;
-      setBattlePhase("done");
-      const steps = buildStepList(battle, useCaseStore.getState().paidCases).length;
-      setRevealedCount(steps);
-      if (steps > 0) setAnimStep(steps - 1);
-      // Show loot modal only if winner and not yet claimed
-      if (battle.result?.rewardStatus === "unclaimed" && userWonRef.current) {
+      if (battle.result?.rewardStatus === "unclaimed" && userWonRef.current && !lootModalFiredRef.current) {
+        lootModalFiredRef.current = true;
         setShowLootModal(true);
       }
     }
@@ -792,12 +805,7 @@ export function BattleRoom() {
     toast.success(`Odebrano: ${formatMoney(perHead)} (Shared)`, {
       duration: 4000,
     });
-    // Remove and navigate after a moment so the winner banner is briefly visible
-    const t = window.setTimeout(() => {
-      deleteBattle(battle.id);
-      navigate("/bitwy");
-    }, 2000);
-    return () => window.clearTimeout(t);
+    // Stay on the end screen — user navigates away via "Wróć do bitew".
   }, [battlePhase]); // eslint-disable-line
 
   // ── Animation runner ─────────────────────────────────────────────
@@ -835,7 +843,12 @@ export function BattleRoom() {
             } else {
               setBattlePhase("done");
               if (userWonRef.current) {
-                timers.push(window.setTimeout(() => setShowLootModal(true), 3000));
+                timers.push(window.setTimeout(() => {
+                  if (!lootModalFiredRef.current) {
+                    lootModalFiredRef.current = true;
+                    setShowLootModal(true);
+                  }
+                }, 3000));
               }
             }
           }
@@ -857,7 +870,7 @@ export function BattleRoom() {
 
     const winnerId = result?.winnerId ?? null;
     const timers: number[] = [];
-    const CYCLE_MS = 160;
+    const CYCLE_MS = 280;
     const TOTAL_CYCLES = 11;
     let count = 0;
 
@@ -870,7 +883,12 @@ export function BattleRoom() {
         setTiebreakHighlightId(winnerId);
         timers.push(window.setTimeout(() => {
           setBattlePhase("done");
-          if (userWonRef.current) timers.push(window.setTimeout(() => setShowLootModal(true), 3000));
+          if (userWonRef.current) timers.push(window.setTimeout(() => {
+            if (!lootModalFiredRef.current) {
+              lootModalFiredRef.current = true;
+              setShowLootModal(true);
+            }
+          }, 3000));
         }, 700));
       }
     };
@@ -889,15 +907,14 @@ export function BattleRoom() {
   // ── Claim handlers ───────────────────────────────────────────────
 
   /**
-   * Apply winner-takes-all reward and remove the battle.
+   * Apply winner-takes-all reward.
+   * Does NOT navigate or delete the battle — user leaves via handleReturn.
    * Idempotency is enforced by claimReward in the store.
    */
   const handleClaimItems = (action: "keep" | "sell") => {
     if (!battle?.result) return;
     if (battle.result.rewardStatus !== "unclaimed") {
-      // Already claimed — just close and navigate
       setShowLootModal(false);
-      navigate("/bitwy");
       return;
     }
 
@@ -907,6 +924,7 @@ export function BattleRoom() {
       const totalVal = pending.reduce((s, d) => s + d.valueCents, 0);
       addBalanceCents(totalVal);
       claimReward(battle.id, "sold");
+      toast.success(`Sprzedano za ${formatMoney(totalVal)}`);
     } else {
       const newItems: InventoryItem[] = pending.map((d) => ({
         instanceId: d.instanceId, dropId: d.dropId, name: d.name,
@@ -915,24 +933,27 @@ export function BattleRoom() {
       }));
       useGameStore.setState((s) => ({ inventory: [...s.inventory, ...newItems] }));
       claimReward(battle.id, "kept");
+      toast.success(`Dodano ${pending.length} ${pending.length === 1 ? "item" : "itemów"} do ekwipunku`);
     }
 
     setShowLootModal(false);
-    deleteBattle(battle.id);
-    navigate("/bitwy");
+    // Battle stays on the end screen until user clicks "Wróć do bitew".
   };
 
   /** Auto-keep: triggered when user closes the modal without choosing */
   const handleModalClose = () => {
     if (!battle?.result) { setShowLootModal(false); return; }
-    // Only auto-keep if still unclaimed (prevents double-claim if user
-    // somehow triggers close after choosing)
     if (battle.result.rewardStatus === "unclaimed") {
       handleClaimItems("keep");
     } else {
       setShowLootModal(false);
-      navigate("/bitwy");
     }
+  };
+
+  /** Explicit back navigation — deletes the battle from store then leaves. */
+  const handleReturn = () => {
+    if (battle) deleteBattle(battle.id);
+    navigate("/bitwy");
   };
 
   // ── Not found ────────────────────────────────────────────────────
@@ -1099,6 +1120,20 @@ export function BattleRoom() {
       {/* Drops showcase — replaces per-column drops at done phase (winner-takes-all modes) */}
       {battlePhase === "done" && !isShared && (
         <DropsShowcase battle={battle} result={result} isTeams={isTeams} />
+      )}
+
+      {/* ── Explicit back button — always shown at end, never auto-exits ── */}
+      {battlePhase === "done" && (
+        <div className="flex justify-center pt-2 pb-4">
+          <button
+            type="button"
+            onClick={handleReturn}
+            className="flex items-center gap-2.5 px-8 py-3 rounded-xl border border-slate-600/50 bg-slate-900/70 text-slate-300 hover:border-cyan-500/50 hover:text-cyan-200 hover:bg-slate-800/70 font-bold text-sm transition-all duration-200"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Wróć do bitew
+          </button>
+        </div>
       )}
 
       {battlePhase === "done" && userWon && !isShared && <ConfettiEffect />}
