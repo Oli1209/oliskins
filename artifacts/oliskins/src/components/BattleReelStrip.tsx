@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 import type { Drop } from "../lib/types";
 import type { BattleDrop } from "../lib/battleTypes";
 import type { EffectiveDrop } from "../lib/chances";
-import { rarityColors, rarityLabelPl } from "../lib/rarity";
+import { rarityColors } from "../lib/rarity";
 import { formatMoney } from "../lib/format";
 import { SkinCard } from "./SkinCard";
 
-// ─── Vertical Reel Strip (image-only tiles) ───────────────────────────────────
+// ─── Vertical Reel Strip ──────────────────────────────────────────────────────
+// Tiles are image-only (no text, no rarity badge) to avoid spoilers.
+// The reel is taller and tiles are proportionally larger for a cleaner
+// "card-like" look closer to reference screenshots.
 
 type Props = {
   fillerDrops: (Drop | EffectiveDrop)[];
@@ -16,10 +19,10 @@ type Props = {
 
 const REEL_LENGTH = 32;
 const WINNING_INDEX = 24;
-const TILE_H = 80;
-const TILE_GAP = 6;
+const TILE_H = 164;          // taller tiles — more card-like
+const TILE_GAP = 8;
 const SPACING = TILE_H + TILE_GAP;
-const VIEWPORT_H = 380;
+const VIEWPORT_H = 468;      // taller viewport — more tiles visible, less cramped
 
 const winnerCenter = WINNING_INDEX * SPACING + TILE_H / 2;
 const BASE_TARGET_Y = VIEWPORT_H / 2 - winnerCenter;
@@ -33,7 +36,8 @@ export function BattleReelStrip({ fillerDrops, winner, durationMs = 3200 }: Prop
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
-    const rawOffset = (Math.random() * 2 - 1) * TILE_H * 0.25;
+    // Small random offset so the winner tile doesn't always stop dead-centre
+    const rawOffset = (Math.random() * 2 - 1) * TILE_H * 0.18;
     const targetY = BASE_TARGET_Y + rawOffset;
     let raf2 = 0;
     const raf1 = requestAnimationFrame(() => {
@@ -54,7 +58,10 @@ export function BattleReelStrip({ fillerDrops, winner, durationMs = 3200 }: Prop
       if (i === WINNING_INDEX) {
         return {
           key: `w-${winner.instanceId}`,
-          drop: { id: winner.dropId, name: winner.name, rarity: winner.rarity, image: winner.image, valueCents: winner.valueCents, weight: 1 } as Drop,
+          drop: {
+            id: winner.dropId, name: winner.name, rarity: winner.rarity,
+            image: winner.image, valueCents: winner.valueCents, weight: 1,
+          } as Drop,
           isWinner: true,
         };
       }
@@ -62,17 +69,21 @@ export function BattleReelStrip({ fillerDrops, winner, durationMs = 3200 }: Prop
     });
   }, [winner, fillerDrops]);
 
-  const rc = rarityColors[winner.rarity];
-
   return (
-    <div className="relative overflow-hidden rounded-xl border border-cyan-500/25 bg-slate-950/80 w-full" style={{ height: VIEWPORT_H }}>
-      {/* Strip */}
+    <div
+      className="relative overflow-hidden rounded-xl border border-slate-700/40 bg-slate-950/90 w-full"
+      style={{ height: VIEWPORT_H }}
+    >
+      {/* ── Scrolling strip ── */}
       <div
         className="flex flex-col will-change-transform absolute top-0 left-0 right-0"
         style={{
-          gap: TILE_GAP, paddingTop: 6,
+          gap: TILE_GAP,
+          paddingTop: 6,
           transform: `translate3d(0,${translateY}px,0)`,
-          transition: isAnimating ? `transform ${durationMs}ms cubic-bezier(0.08,0.82,0.17,1)` : "none",
+          transition: isAnimating
+            ? `transform ${durationMs}ms cubic-bezier(0.08,0.82,0.17,1)`
+            : "none",
         }}
       >
         {reelItems.map(({ key, drop, isWinner }) => {
@@ -80,37 +91,58 @@ export function BattleReelStrip({ fillerDrops, winner, durationMs = 3200 }: Prop
           return (
             <div
               key={key}
-              className={`mx-1.5 shrink-0 relative rounded-lg border-2 overflow-hidden ${r.border} ${isWinner ? "shadow-lg brightness-110" : "opacity-60"}`}
+              className={`mx-2 shrink-0 relative rounded-xl border-2 overflow-hidden transition-none ${r.border} ${
+                isWinner ? "brightness-110" : "opacity-55"
+              }`}
               style={{ height: TILE_H }}
             >
+              {/* Image-only — NO name/price/rarity text (anti-spoiler) */}
               <SkinCard image={drop.image} name={drop.name} rarity={drop.rarity} />
-              {/* Rarity stripe at bottom */}
-              <div className={`absolute inset-x-0 bottom-0 h-1.5 ${r.bg} opacity-70 pointer-events-none`} />
+
+              {/* Thin rarity accent stripe at bottom — subtle, doesn't spoil outcome */}
+              <div
+                className={`absolute inset-x-0 bottom-0 h-1 ${r.bg} opacity-60 pointer-events-none`}
+              />
             </div>
           );
         })}
       </div>
 
-      {/* Crosshair */}
-      <div className="pointer-events-none absolute inset-x-0 h-[2px] bg-cyan-300 shadow-[0_0_14px_rgba(34,211,238,0.95),0_0_28px_rgba(34,211,238,0.5)]" style={{ top: VIEWPORT_H / 2 - 1 }} />
-      {/* Fades */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-slate-950 to-transparent" />
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950 to-transparent" />
-      {/* Rarity badge */}
-      <div className={`absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${rc.bg} ${rc.text} border ${rc.border}`}>
-        {rarityLabelPl(winner.rarity)}
-      </div>
+      {/* ── Centre crosshair ── */}
+      <div
+        className="pointer-events-none absolute inset-x-0 h-[2px] bg-cyan-300"
+        style={{
+          top: VIEWPORT_H / 2 - 1,
+          boxShadow: "0 0 12px rgba(34,211,238,0.9), 0 0 28px rgba(34,211,238,0.45)",
+        }}
+      />
+      {/* Crosshair side triangles for clarity */}
+      <div
+        className="pointer-events-none absolute left-0 border-y-[6px] border-y-transparent border-l-[10px] border-l-cyan-400"
+        style={{ top: VIEWPORT_H / 2 - 6 }}
+      />
+      <div
+        className="pointer-events-none absolute right-0 border-y-[6px] border-y-transparent border-r-[10px] border-r-cyan-400"
+        style={{ top: VIEWPORT_H / 2 - 6 }}
+      />
+
+      {/* ── Edge fades (top + bottom) ── */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-slate-950 via-slate-950/70 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent" />
     </div>
   );
 }
 
-// ─── Revealed drop tile (3-col grid) ─────────────────────────────────────────
+// ─── Revealed drop tile (3-col grid, shown after animation) ──────────────────
 
 export function RevealedDropCard({ drop }: { drop: BattleDrop }) {
   const rc = rarityColors[drop.rarity];
   return (
     <div className={`flex flex-col items-center rounded-lg border ${rc.border} bg-slate-900/70 p-1.5 gap-1`}>
-      <div className={`w-full aspect-square rounded-md border ${rc.border} overflow-hidden relative`} style={{ maxHeight: 52 }}>
+      <div
+        className={`w-full aspect-square rounded-md border ${rc.border} overflow-hidden relative`}
+        style={{ maxHeight: 52 }}
+      >
         <SkinCard image={drop.image} name={drop.name} rarity={drop.rarity} />
       </div>
       <p className={`text-[9px] font-bold text-center w-full truncate leading-tight ${rc.text}`}>{drop.name}</p>
