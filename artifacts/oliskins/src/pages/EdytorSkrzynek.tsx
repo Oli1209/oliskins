@@ -124,11 +124,16 @@ function validateCase(
 
 // ─── Drop Row ─────────────────────────────────────────────────────────────────
 
+type EditMode = "weight" | "pct";
+
 function DropRow({
-  drop, chance, idx, errors, onChange, onDelete,
+  drop, chance, idx, errors, editMode, pctValue, onPctChange, onChange, onDelete,
 }: {
   drop: Drop; chance: number; idx: number;
   errors: DropErrors[number];
+  editMode: EditMode;
+  pctValue: string;
+  onPctChange: (val: string) => void;
   onChange: (d: Drop) => void;
   onDelete: () => void;
 }) {
@@ -138,6 +143,7 @@ function DropRow({
 
   return (
     <tr className="border-b border-slate-800/60 last:border-0">
+      {/* Nazwa */}
       <td className="px-2 py-1.5 min-w-[130px]">
         <input
           type="text" value={drop.name}
@@ -148,6 +154,8 @@ function DropRow({
         />
         {errors.name && <p className="text-[10px] text-red-400 mt-0.5">{errors.name}</p>}
       </td>
+
+      {/* Rzadkość */}
       <td className="px-2 py-1.5 min-w-[110px]">
         <select
           value={drop.rarity}
@@ -159,6 +167,8 @@ function DropRow({
           ))}
         </select>
       </td>
+
+      {/* Wartość */}
       <td className="px-2 py-1.5 min-w-[90px]">
         <div className="relative">
           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-cyan-400 text-[10px] font-bold">#</span>
@@ -172,16 +182,36 @@ function DropRow({
         </div>
         {errors.valueCents && <p className="text-[10px] text-red-400 mt-0.5">{errors.valueCents}</p>}
       </td>
-      <td className="px-2 py-1.5 min-w-[70px]">
-        <input
-          type="number" min="0.01" step="1"
-          value={drop.weight}
-          onChange={(e) => onChange({ ...drop, weight: Math.max(0.01, parseFloat(e.target.value) || 0) })}
-          className={fieldCls(errors.weight)}
-          title={errors.weight}
-        />
-        {errors.weight && <p className="text-[10px] text-red-400 mt-0.5">{errors.weight}</p>}
-      </td>
+
+      {/* Waga / % — switches based on edit mode */}
+      {editMode === "weight" ? (
+        <td className="px-2 py-1.5 min-w-[70px]">
+          <input
+            type="number" min="0.01" step="1"
+            value={drop.weight}
+            onChange={(e) => onChange({ ...drop, weight: Math.max(0.01, parseFloat(e.target.value) || 0) })}
+            className={fieldCls(errors.weight)}
+            title={errors.weight}
+          />
+          {errors.weight && <p className="text-[10px] text-red-400 mt-0.5">{errors.weight}</p>}
+        </td>
+      ) : (
+        <td className="px-2 py-1.5 min-w-[80px]">
+          <div className="relative">
+            <input
+              type="number" min="0" max="100" step="0.01"
+              value={pctValue}
+              onChange={(e) => onPctChange(e.target.value)}
+              className={`${fieldCls()} pr-5 text-violet-300 border-violet-500/40 focus:border-violet-400`}
+              placeholder="0.00"
+            />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-violet-500 text-[10px] font-bold pointer-events-none">%</span>
+          </div>
+          <p className="text-[9px] text-slate-700 mt-0.5 text-center font-mono">waga: {drop.weight}</p>
+        </td>
+      )}
+
+      {/* Obraz URL */}
       <td className="px-2 py-1.5 min-w-[150px]">
         <input
           type="text" value={drop.image}
@@ -190,9 +220,14 @@ function DropRow({
           className={fieldCls()}
         />
       </td>
+
+      {/* Szansa — read-only, always shows persisted weight % */}
       <td className="px-2 py-1.5 text-center min-w-[70px]">
-        <span className="text-xs font-mono text-slate-400">{idx >= 0 ? chance.toFixed(2) : 0}%</span>
+        <span className={`text-xs font-mono ${editMode === "pct" ? "text-slate-600" : "text-slate-400"}`}>
+          {idx >= 0 ? chance.toFixed(2) : "0.00"}%
+        </span>
       </td>
+
       <td className="px-2 py-1.5 text-center">
         <button
           type="button" onClick={onDelete}
@@ -233,10 +268,13 @@ function CaseEditor({ caseId, onDeselect, allCases, onUpdate, onDelete, caseType
     source ? hydratedDraft(source) : (caseType === "free" ? newFreeCase() : newPaidCase())
   );
   const [saved, setSaved] = useState(false);
+  const [editMode, setEditMode] = useState<EditMode>("pct");
+  const [pctDraft, setPctDraft] = useState<Record<string, string>>({});
 
   const stableId = draft.id;
   if (stableId !== caseId && source) {
     setDraft(hydratedDraft(source));
+    setPctDraft({});
   }
 
   const mp: ModePricing = draft.modePricing ?? DEFAULT_MODE_PRICING;
@@ -256,15 +294,69 @@ function CaseEditor({ caseId, onDeselect, allCases, onUpdate, onDelete, caseType
   const setDrop = (i: number, d: Drop) =>
     setDraft((prev) => ({ ...prev, drops: prev.drops.map((x, j) => (j === i ? d : x)) }));
 
-  const addDrop = () => setDraft((prev) => ({ ...prev, drops: [...prev.drops, newDrop()] }));
+  const addDrop = () => {
+    const d = newDrop();
+    setDraft((prev) => ({ ...prev, drops: [...prev.drops, d] }));
+    if (editMode === "pct") {
+      setPctDraft((prev) => ({ ...prev, [d.id]: "0.00" }));
+    }
+  };
 
-  const deleteDrop = (i: number) =>
+  const deleteDrop = (i: number) => {
+    const dropId = draft.drops[i]?.id;
     setDraft((prev) => ({ ...prev, drops: prev.drops.filter((_, j) => j !== i) }));
+    if (dropId) {
+      setPctDraft((prev) => { const n = { ...prev }; delete n[dropId]; return n; });
+    }
+  };
 
   const handleNormalize = () => {
     if (draft.drops.length === 0) return;
     setDraft((prev) => ({ ...prev, drops: normalizeWeights(prev.drops) }));
   };
+
+  const switchEditMode = (mode: EditMode) => {
+    if (mode === "pct") {
+      const tw = draft.drops.reduce((s, d) => s + d.weight, 0);
+      const init: Record<string, string> = {};
+      draft.drops.forEach((d) => {
+        init[d.id] = tw > 0 ? ((d.weight / tw) * 100).toFixed(2) : "0.00";
+      });
+      setPctDraft(init);
+    } else {
+      setPctDraft({});
+    }
+    setEditMode(mode);
+  };
+
+  const applyPct = () => {
+    if (draft.drops.length === 0) return;
+    const tw = draft.drops.reduce((s, d) => s + d.weight, 0);
+    const pcts = draft.drops.map((d) => {
+      const raw = pctDraft[d.id];
+      return raw !== undefined ? Math.max(0, parseFloat(raw) || 0) : (tw > 0 ? (d.weight / tw) * 100 : 100 / draft.drops.length);
+    });
+    const TARGET = 10000;
+    const rawWeights = pcts.map((p) => Math.max(1, Math.round((p / 100) * TARGET)));
+    const sum = rawWeights.reduce((s, w) => s + w, 0);
+    const diff = TARGET - sum;
+    const maxIdx = rawWeights.reduce((best, w, i) => (w > rawWeights[best] ? i : best), 0);
+    rawWeights[maxIdx] = Math.max(1, rawWeights[maxIdx] + diff);
+    const newDrops = draft.drops.map((d, i) => ({ ...d, weight: rawWeights[i] }));
+    setDraft((prev) => ({ ...prev, drops: newDrops }));
+    const newTw = rawWeights.reduce((s, w) => s + w, 0);
+    const refreshed: Record<string, string> = {};
+    newDrops.forEach((d, i) => {
+      refreshed[d.id] = ((rawWeights[i] / newTw) * 100).toFixed(2);
+    });
+    setPctDraft(refreshed);
+  };
+
+  const currentPctSum = draft.drops.reduce((sum, d) => {
+    const raw = pctDraft[d.id];
+    return sum + (raw !== undefined ? (parseFloat(raw) || 0) : (totalWeight > 0 ? (d.weight / totalWeight) * 100 : 0));
+  }, 0);
+  const pctSumOk = Math.abs(currentPctSum - 100) < 0.005;
 
   const handleSave = () => {
     if (!valid) return;
@@ -476,20 +568,75 @@ function CaseEditor({ caseId, onDeselect, allCases, onUpdate, onDelete, caseType
 
       {/* Drops */}
       <div className="glass-strong rounded-2xl border border-slate-700/30 p-5 flex flex-col gap-3 min-h-0">
+        {/* Toolbar row 1: title + mode toggle */}
         <div className="flex items-center gap-2 flex-wrap">
           <h3 className="text-sm font-black text-slate-200 flex-1">Dropy ({draft.drops.length})</h3>
-          <span className="text-[10px] text-slate-500 font-mono">
-            Suma wag: <strong className="text-slate-400">{totalWeight.toFixed(1)}</strong>
-          </span>
-          <button
-            type="button"
-            onClick={handleNormalize}
-            disabled={draft.drops.length === 0 || totalWeight <= 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 text-violet-300 text-xs font-bold hover:bg-violet-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            title="Skaluj wagi do sumy 10000"
-          >
-            <Shuffle className="w-3.5 h-3.5" /> Normalizuj wagi
-          </button>
+
+          {/* Edit mode toggle */}
+          <div className="flex items-center gap-1 rounded-lg border border-slate-700/40 bg-slate-900/50 p-0.5">
+            <span className="text-[10px] text-slate-600 px-1.5 font-bold uppercase tracking-wider">Edycja:</span>
+            <button
+              type="button"
+              onClick={() => switchEditMode("weight")}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${
+                editMode === "weight"
+                  ? "bg-slate-700 text-slate-200"
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >Wagi</button>
+            <button
+              type="button"
+              onClick={() => switchEditMode("pct")}
+              className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors ${
+                editMode === "pct"
+                  ? "bg-violet-600/70 text-violet-100"
+                  : "text-slate-500 hover:text-slate-300"
+              }`}
+            >%</button>
+          </div>
+        </div>
+
+        {/* Toolbar row 2: sum indicator + action buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {editMode === "pct" ? (
+            <span className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded border ${
+              pctSumOk
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                : "border-amber-500/40 bg-amber-500/10 text-amber-400"
+            }`}>
+              Suma: {currentPctSum.toFixed(2)}%
+              {!pctSumOk && " — kliknij Zastosuj %"}
+            </span>
+          ) : (
+            <span className="text-[10px] text-slate-500 font-mono">
+              Suma wag: <strong className="text-slate-400">{totalWeight.toFixed(1)}</strong>
+            </span>
+          )}
+
+          <div className="flex-1" />
+
+          {editMode === "pct" ? (
+            <button
+              type="button"
+              onClick={applyPct}
+              disabled={draft.drops.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-violet-500/40 bg-violet-500/15 text-violet-300 text-xs font-bold hover:bg-violet-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title="Przelicz % na wagi całkowite (suma=10000)"
+            >
+              <Shuffle className="w-3.5 h-3.5" /> Zastosuj %
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleNormalize}
+              disabled={draft.drops.length === 0 || totalWeight <= 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-violet-500/30 bg-violet-500/10 text-violet-300 text-xs font-bold hover:bg-violet-500/20 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title="Skaluj wagi do sumy 10000"
+            >
+              <Shuffle className="w-3.5 h-3.5" /> Normalizuj wagi
+            </button>
+          )}
+
           <button
             type="button" onClick={addDrop}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 text-xs font-bold hover:bg-cyan-500/20 transition-colors"
@@ -504,7 +651,13 @@ function CaseEditor({ caseId, onDeselect, allCases, onUpdate, onDelete, caseType
           <table className="w-full min-w-[700px] text-xs">
             <thead>
               <tr className="border-b border-slate-800/60 bg-slate-950/40">
-                {["Nazwa", "Rzadkość", "Wartość (#)", "Waga", "Obraz URL", "Szansa", ""].map((h) => (
+                {[
+                  "Nazwa", "Rzadkość", "Wartość (#)",
+                  editMode === "pct" ? "Szansa %" : "Waga",
+                  "Obraz URL",
+                  editMode === "pct" ? "Waga (akt.)" : "Szansa",
+                  "",
+                ].map((h) => (
                   <th key={h} className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-slate-600">{h}</th>
                 ))}
               </tr>
@@ -517,6 +670,9 @@ function CaseEditor({ caseId, onDeselect, allCases, onUpdate, onDelete, caseType
                   idx={i}
                   chance={totalWeight > 0 ? (d.weight / totalWeight) * 100 : 0}
                   errors={dropErrors[i] ?? {}}
+                  editMode={editMode}
+                  pctValue={pctDraft[d.id] ?? (totalWeight > 0 ? ((d.weight / totalWeight) * 100).toFixed(2) : "0.00")}
+                  onPctChange={(val) => setPctDraft((prev) => ({ ...prev, [d.id]: val }))}
                   onChange={(nd) => setDrop(i, nd)}
                   onDelete={() => deleteDrop(i)}
                 />
