@@ -4,6 +4,7 @@ import { useGameStore } from "../store/useGameStore";
 import { formatMoney } from "../lib/format";
 import { rarityColors } from "../lib/rarity";
 import { GlassCard } from "../components/GlassCard";
+import { CaseImg } from "../components/CaseImg";
 import { isCaseValid, INVALID_CASE_MSG } from "../lib/types";
 
 export function Skrzynki() {
@@ -29,7 +30,7 @@ export function Skrzynki() {
             <GlassCard className={`flex flex-col p-0 relative overflow-hidden h-full ${!valid ? "opacity-60" : ""}`}>
               <div className="p-6 pb-0 flex-1">
                 <div className="relative aspect-video mb-6 rounded-lg overflow-hidden border border-cyan-500/20 bg-black/40">
-                  <img
+                  <CaseImg
                     src={c.image}
                     alt={c.name}
                     className="w-full h-full object-cover opacity-80 mix-blend-screen transition-transform duration-500 group-hover:scale-105"

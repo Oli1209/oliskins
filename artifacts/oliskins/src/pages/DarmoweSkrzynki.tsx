@@ -1,5 +1,6 @@
 import { Link, Outlet } from "react-router-dom";
 import { Lock, Gift, Clock, Check } from "lucide-react";
+import { CaseImg } from "../components/CaseImg";
 import { useFreeCaseStore } from "../store/useFreeCaseStore";
 import { useGameStore } from "../store/useGameStore";
 import { computeLevel } from "../lib/types";
@@ -71,7 +72,7 @@ export function DarmoweSkrzynki() {
             >
               <div className="p-6 pb-0 flex-1">
                 <div className="relative aspect-video mb-6 rounded-lg overflow-hidden border border-emerald-500/20 bg-black/40">
-                  <img
+                  <CaseImg
                     src={c.image}
                     alt={c.name}
                     className={`w-full h-full object-cover opacity-80 mix-blend-screen transition-transform duration-500 ${

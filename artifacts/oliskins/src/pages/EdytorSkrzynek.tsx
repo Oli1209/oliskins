@@ -2,8 +2,9 @@ import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft, Plus, Trash2, Copy, Check, Upload, Wrench, PackagePlus, Shuffle,
-  CreditCard, Gift,
+  CreditCard, Gift, AlertTriangle,
 } from "lucide-react";
+import { CaseImg } from "../components/CaseImg";
 import { useCaseStore } from "../store/useCaseStore";
 import { useFreeCaseStore } from "../store/useFreeCaseStore";
 import { rarityColors, RARITY_ORDER, rarityLabelPl } from "../lib/rarity";
@@ -363,13 +364,19 @@ function CaseEditor({ caseId, onDeselect, allCases, onUpdate, onDelete, caseType
           <div className="sm:col-span-2">
             <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">URL obrazka skrzynki</label>
             <div className="flex gap-2 items-start">
-              <input type="text" value={draft.image}
-                onChange={(e) => setDraft((p) => ({ ...p, image: e.target.value }))}
-                className={`${fieldCls()} flex-1`} placeholder="https://... lub data:image/..."
-              />
-              {draft.image && (
-                <img src={draft.image} alt="" className="w-14 h-10 rounded-lg object-cover border border-slate-700/40 shrink-0" />
-              )}
+              <div className="flex-1 space-y-1">
+                <input type="text" value={draft.image}
+                  onChange={(e) => setDraft((p) => ({ ...p, image: e.target.value }))}
+                  className={`${fieldCls()} w-full`} placeholder="https://... lub data:image/..."
+                />
+                {draft.image.startsWith("http://") && (
+                  <p className="flex items-center gap-1 text-[10px] text-amber-400">
+                    <AlertTriangle className="w-3 h-3 shrink-0" />
+                    Uwaga: HTTP może nie działać na HTTPS. Użyj https://
+                  </p>
+                )}
+              </div>
+              <CaseImg src={draft.image} alt="" className="w-14 h-10 rounded-lg object-cover border border-slate-700/40 shrink-0" />
             </div>
           </div>
         </div>
@@ -719,9 +726,7 @@ export function EdytorSkrzynek() {
                   : "border-l-2 border-transparent text-slate-400 hover:bg-slate-800/30 hover:text-slate-200"
               }`}
             >
-              {c.image && (
-                <img src={c.image} alt="" className="w-10 h-7 rounded object-cover shrink-0 border border-slate-700/40" />
-              )}
+              <CaseImg src={c.image} alt="" className="w-10 h-7 rounded object-cover shrink-0 border border-slate-700/40" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold truncate leading-tight">{c.name}</p>
                 {isPaid

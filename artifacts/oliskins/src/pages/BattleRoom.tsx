@@ -15,6 +15,7 @@ import { rarityColors } from "../lib/rarity";
 import { formatMoney } from "../lib/format";
 import { useCaseStore } from "../store/useCaseStore";
 import { BattleReelStrip, RevealedDropCard } from "../components/BattleReelStrip";
+import { CaseImg } from "../components/CaseImg";
 import type { BattleStep } from "../lib/battleRng";
 import type { Battle, BattleDrop, BattleMode, Participant } from "../lib/battleTypes";
 import type { InventoryItem } from "../lib/types";
@@ -140,7 +141,7 @@ function TopBar({ battle }: { battle: Battle }) {
             const c = useCaseStore.getState().paidCases.find((x) => x.id === sc.caseId);
             return (
               <div key={i} className="flex items-center gap-1.5 px-2 py-1 rounded-lg border border-slate-700/40 bg-slate-900/60 text-[11px]">
-                {c?.image && <img src={c.image} alt="" className="w-6 h-5 rounded object-cover" />}
+                <CaseImg src={c?.image ?? ""} alt="" className="w-6 h-5 rounded object-cover" />
                 <span className="font-bold text-slate-300 whitespace-nowrap">{c?.name}</span>
                 <span className="text-slate-600">×{sc.qty}</span>
                 {sc.openMode !== "normal" && (
@@ -1017,7 +1018,7 @@ export function BattleRoom() {
               const c = useCaseStore.getState().paidCases.find((x) => x.id === sc.caseId);
               return (
                 <div key={i} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-700/40 bg-slate-900/50">
-                  {c?.image && <img src={c.image} alt="" className="w-6 h-5 rounded object-cover" />}
+                  <CaseImg src={c?.image ?? ""} alt="" className="w-6 h-5 rounded object-cover" />
                   <span className="text-xs font-bold text-slate-300">{c?.name}</span>
                   <span className="text-[10px] text-slate-500">×{sc.qty} · {sc.openMode}</span>
                 </div>

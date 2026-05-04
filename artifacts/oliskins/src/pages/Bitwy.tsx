@@ -4,6 +4,7 @@ import {
   Swords, Plus, Trash2, LogIn, X, TrendingDown, Users,
   SkipForward, Rewind, AlertCircle,
 } from "lucide-react";
+import { CaseImg } from "../components/CaseImg";
 import { useGameStore } from "../store/useGameStore";
 import { useBattleStore, computeTotalCostCents } from "../store/useBattleStore";
 import { CaseSelectorModal } from "../components/BattleSetupModal";
@@ -178,7 +179,7 @@ export function Bitwy() {
                       key={idx}
                       className="flex items-center gap-3 rounded-xl border border-slate-700/40 bg-slate-900/50 px-3 py-2.5"
                     >
-                      <img src={caseData.image} alt="" className="w-11 h-9 rounded-lg object-cover shrink-0" />
+                      <CaseImg src={caseData.image} alt="" className="w-11 h-9 rounded-lg object-cover shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-bold text-slate-200 truncate">{caseData.name}</p>
@@ -407,9 +408,7 @@ export function Bitwy() {
                             key={i}
                             className="flex items-center gap-1 px-2 py-1 rounded-lg border border-slate-700/40 bg-slate-900/50"
                           >
-                            {c?.image && (
-                              <img src={c.image} alt="" className="w-5 h-4 rounded object-cover" />
-                            )}
+                            <CaseImg src={c?.image ?? ""} alt="" className="w-5 h-4 rounded object-cover" />
                             <span className="text-[10px] text-slate-400 truncate max-w-[80px]">
                               {c?.name}
                             </span>

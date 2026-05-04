@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { X, ChevronRight, ChevronLeft, Search, ArrowUpDown } from "lucide-react";
+import { CaseImg } from "./CaseImg";
 import { useCaseStore } from "../store/useCaseStore";
 import type { SelectedCase } from "../lib/battleTypes";
 import type { Mode } from "../lib/chances";
@@ -138,7 +139,7 @@ export function CaseSelectorModal({ onAdd, onClose }: Props) {
                           : "border-red-500/20 bg-red-950/10 opacity-60 cursor-not-allowed"
                       }`}
                     >
-                      <img src={c.image} alt="" className="w-12 h-10 rounded-lg object-cover shrink-0" />
+                      <CaseImg src={c.image} alt="" className="w-12 h-10 rounded-lg object-cover shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className={`text-sm font-bold truncate transition-colors ${valid ? "text-slate-200 group-hover:text-cyan-300" : "text-red-300"}`}>
                           {c.name}
@@ -165,7 +166,7 @@ export function CaseSelectorModal({ onAdd, onClose }: Props) {
             <div className="space-y-5">
               {/* Case preview */}
               <div className="flex items-center gap-4 rounded-xl border border-slate-700/40 bg-slate-900/60 p-4">
-                <img src={pickedCase.image} alt="" className="w-16 h-14 rounded-lg object-cover" />
+                <CaseImg src={pickedCase.image} alt="" className="w-16 h-14 rounded-lg object-cover" />
                 <div>
                   <p className="text-base font-black text-slate-100">{pickedCase.name}</p>
                   <p className="text-xs text-slate-500 mt-0.5">
