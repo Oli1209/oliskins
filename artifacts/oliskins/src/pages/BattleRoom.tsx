@@ -63,6 +63,19 @@ function teamOf(idx: number): "A" | "B" { return idx < 2 ? "A" : "B"; }
 
 // ─── Confetti ─────────────────────────────────────────────────────────────────
 
+// ─── Shared animation keyframes ───────────────────────────────────────────────
+
+function BattleAnimStyles() {
+  return (
+    <style>{`
+      @keyframes cfFall{0%{transform:translateY(-10px) rotate(0);opacity:1}100%{transform:translateY(105vh) rotate(700deg);opacity:0}}
+      @keyframes winnerIn{0%{opacity:0;transform:scale(0.88)}60%{transform:scale(1.04)}100%{opacity:1;transform:scale(1)}}
+      @keyframes loserIn{0%{opacity:0}100%{opacity:1}}
+      @keyframes dropsIn{0%{opacity:0;transform:translateY(10px)}100%{opacity:1;transform:translateY(0)}}
+    `}</style>
+  );
+}
+
 function ConfettiEffect() {
   const particles = useMemo(
     () => Array.from({ length: 55 }, (_, i) => ({
@@ -170,34 +183,49 @@ function WinnerBanner({
   const isTeams = battle.battleFormat === "teams";
   const userId = battle.participants[0]?.id ?? "";
 
-  let title = "Koniec bitwy";
-  let subtitle = "";
-  let borderCls = "border-slate-600/40";
-
+  // ── Shared mode: neutral informational banner ──
   if (isShared) {
-    const claimed = result.rewardStatus === "shared_claimed";
-    title = "Shared — Równa wypłata";
-    subtitle = claimed
-      ? `Odebrano ${formatMoney(result.sharedPerHeadCents ?? 0)} gotówki.`
-      : `Każdy otrzymuje ${formatMoney(result.sharedPerHeadCents ?? 0)} gotówki`;
-    borderCls = "border-emerald-500/40";
-  } else if (isTeams && result.teamWinnerId) {
-    title = `Team ${result.teamWinnerId} wygrywa!`;
-    borderCls = result.teamWinnerId === "A" ? "border-cyan-500/50" : "border-purple-500/50";
-  } else if (result.winnerId) {
-    const w = battle.participants.find((p) => p.id === result.winnerId);
-    title = `${w?.name ?? "Gracz"} wygrywa!`;
-    subtitle = result.winnerId === userId ? "Gratulacje! Nagrody pojawią się za chwilę." : "Nie tym razem.";
-    borderCls = result.winnerId === userId ? "border-amber-400/50" : "border-slate-600/40";
+    const perHead = result.sharedPerHeadCents ?? 0;
+    return (
+      <div className="glass-strong rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-5 text-center space-y-2">
+        <Users className="w-10 h-10 text-emerald-400 mx-auto" />
+        <h2 className="text-2xl font-black text-slate-100">Shared: wypłata równa dla wszystkich</h2>
+        <p className="text-lg font-black text-emerald-300 font-mono">
+          Na głowę: {formatMoney(perHead)}
+        </p>
+        <p className="text-xs text-emerald-600">
+          {result.rewardStatus === "shared_claimed" ? "Środki zostały doliczone do salda." : "Środki są naliczane…"}
+        </p>
+      </div>
+    );
   }
 
-  return (
-    <div className={`glass-strong rounded-2xl border ${borderCls} p-5 text-center space-y-2`}>
-      <Trophy className="w-10 h-10 text-amber-400 mx-auto" />
-      <h2 className="text-2xl font-black text-slate-100">{title}</h2>
-      {subtitle && <p className="text-sm text-slate-400">{subtitle}</p>}
-    </div>
-  );
+  // ── Teams winner ──
+  if (isTeams && result.teamWinnerId) {
+    const teamColor = result.teamWinnerId === "A" ? "border-cyan-500/50" : "border-purple-500/50";
+    return (
+      <div className={`glass-strong rounded-2xl border ${teamColor} p-5 text-center space-y-2`}>
+        <Trophy className="w-10 h-10 text-amber-400 mx-auto" />
+        <h2 className="text-2xl font-black text-slate-100">Team {result.teamWinnerId} wygrywa!</h2>
+      </div>
+    );
+  }
+
+  // ── FFA winner ──
+  if (result.winnerId) {
+    const w = battle.participants.find((p) => p.id === result.winnerId);
+    const userWon = result.winnerId === userId;
+    return (
+      <div className={`glass-strong rounded-2xl border ${userWon ? "border-emerald-500/50 bg-emerald-500/5" : "border-slate-600/40"} p-5 text-center space-y-2`}>
+        <Trophy className={`w-10 h-10 mx-auto ${userWon ? "text-emerald-400" : "text-amber-400"}`} />
+        <h2 className="text-2xl font-black text-slate-100">{w?.name ?? "Gracz"} wygrywa!</h2>
+        {userWon && <p className="text-sm text-emerald-400">Gratulacje! Nagrody pojawią się za chwilę.</p>}
+        {!userWon && <p className="text-sm text-slate-500">Nie tym razem.</p>}
+      </div>
+    );
+  }
+
+  return null;
 }
 
 // ─── Waiting slot ─────────────────────────────────────────────────────────────
@@ -276,6 +304,7 @@ function ParticipantColumn({
   const currentTotal = revealedDrops.reduce((s, d) => s + d.valueCents, 0);
   const team = isTeams ? teamOf(slotIndex) : null;
   const mode = battle.mode;
+  const isDone = battlePhase === "done";
 
   const safeStep = animStep >= 0 ? animStep : 0;
   const currentStep = stepList[safeStep];
@@ -288,83 +317,225 @@ function ParticipantColumn({
     && battlePhase === "running" && revealedCount < totalSteps;
 
   const isActualWinner = !isShared && (isWinner || isTeamWinner);
-  const isLoser = battlePhase === "done" && !isShared && !isActualWinner;
+  const isLoser = isDone && !isShared && !isActualWinner;
+
+  // Total won = all reward items (winner takes all drops)
+  const totalRewardValue = isDone && isActualWinner
+    ? (result.rewardItems ?? []).reduce((s, d) => s + d.valueCents, 0)
+    : 0;
 
   let ringClass = "";
   if (battlePhase === "running" && isLeader && !isShared) {
     ringClass = getLeaderRingClass(mode);
   } else if (battlePhase === "tiebreak" && isTiebreakHighlight) {
     ringClass = "ring-2 ring-yellow-300 shadow-[0_0_24px_rgba(253,224,71,0.6)]";
-  } else if (battlePhase === "done" && isActualWinner) {
-    ringClass = getWinnerRingClass(mode);
+  } else if (isDone && isActualWinner) {
+    ringClass = "ring-2 ring-emerald-400 shadow-[0_0_30px_rgba(52,211,153,0.5)]";
+  } else if (isDone && isLoser) {
+    ringClass = "ring-1 ring-red-900/60";
   }
 
   const borderCls = team === "A"
     ? "border-cyan-500/30"
     : team === "B"
       ? "border-purple-500/30"
-      : "border-slate-700/30";
+      : isDone && isActualWinner
+        ? "border-emerald-500/40"
+        : isDone && isLoser
+          ? "border-red-900/50"
+          : "border-slate-700/30";
 
   return (
     <div className={`glass-strong relative rounded-2xl border flex flex-col gap-3 p-3 transition-all duration-500 ${borderCls} ${ringClass}`}>
-      {isLoser && (
-        <div className="absolute inset-0 rounded-2xl bg-red-950/35 z-10 pointer-events-none flex items-center justify-center">
-          <XIcon className="w-20 h-20 text-red-500/45" strokeWidth={1.5} />
+
+      {/* ── Winner overlay: green fade+scale-in ── */}
+      {isDone && isActualWinner && (
+        <div
+          className="absolute inset-0 rounded-2xl z-10 pointer-events-none flex flex-col items-center justify-center gap-2"
+          style={{
+            background: "rgba(16,185,129,0.13)",
+            animation: "winnerIn 0.45s cubic-bezier(0.22,1,0.36,1) forwards",
+          }}
+        >
+          <Trophy
+            className="w-11 h-11 text-emerald-300"
+            style={{ filter: "drop-shadow(0 0 14px rgba(52,211,153,0.75))" }}
+          />
+          <span
+            className="text-2xl font-black font-mono text-emerald-300 tracking-tight"
+            style={{ textShadow: "0 0 18px rgba(52,211,153,0.6)" }}
+          >
+            +{formatMoney(totalRewardValue)}
+          </span>
+          <span className="text-[11px] font-bold text-emerald-500/70 uppercase tracking-wider">
+            Wygrywasz!
+          </span>
         </div>
       )}
 
+      {/* ── Loser overlay: red fade-in ── */}
+      {isDone && isLoser && (
+        <div
+          className="absolute inset-0 rounded-2xl z-10 pointer-events-none flex items-center justify-center"
+          style={{
+            background: "rgba(127,29,29,0.42)",
+            animation: "loserIn 0.55s ease-out forwards",
+          }}
+        >
+          <XIcon className="w-16 h-16 text-red-400/65" strokeWidth={1.5} />
+        </div>
+      )}
+
+      {/* Header */}
       <div className="flex items-center gap-2.5">
         <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-          participant.isBot ? "bg-slate-800" : team === "B" ? "bg-purple-500/20" : "bg-cyan-500/20"
+          isDone && isActualWinner
+            ? "bg-emerald-500/20"
+            : isDone && isLoser
+              ? "bg-red-900/30"
+              : participant.isBot
+                ? "bg-slate-800"
+                : team === "B"
+                  ? "bg-purple-500/20"
+                  : "bg-cyan-500/20"
         }`}>
           {participant.isBot
-            ? <Bot className="w-5 h-5 text-slate-400" />
-            : <User className={`w-5 h-5 ${team==="B"?"text-purple-400":"text-cyan-400"}`} />}
+            ? <Bot className={`w-5 h-5 ${isDone && isLoser ? "text-slate-600" : "text-slate-400"}`} />
+            : <User className={`w-5 h-5 ${
+                isDone && isActualWinner ? "text-emerald-400" :
+                isDone && isLoser ? "text-slate-600" :
+                team === "B" ? "text-purple-400" : "text-cyan-400"
+              }`} />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-black text-slate-200 truncate">{participant.name}</p>
-          {team && <p className={`text-[10px] font-bold ${team==="A"?"text-cyan-400":"text-purple-400"}`}>Team {team}</p>}
+          <p className={`text-sm font-black truncate ${isDone && isLoser ? "text-slate-600" : "text-slate-200"}`}>
+            {participant.name}
+          </p>
+          {team && (
+            <p className={`text-[10px] font-bold ${
+              isDone && isLoser ? "text-slate-700" :
+              team === "A" ? "text-cyan-400" : "text-purple-400"
+            }`}>Team {team}</p>
+          )}
         </div>
-        {battlePhase === "done" && isActualWinner && <Crown className="w-5 h-5 text-amber-400 shrink-0" />}
+        {isDone && isActualWinner && <Crown className="w-5 h-5 text-amber-400 shrink-0" />}
       </div>
 
-      <div className={`text-center py-2 rounded-xl border ${
-        team === "A" ? "border-cyan-500/20 bg-cyan-500/5" :
-        team === "B" ? "border-purple-500/20 bg-purple-500/5" :
-        "border-slate-700/30 bg-slate-900/40"
-      }`}>
-        <p className={`text-xl font-black font-mono ${team==="A"?"text-cyan-300":team==="B"?"text-purple-300":"text-slate-200"}`}>
-          {formatMoney(currentTotal)}
-        </p>
-        <p className="text-[10px] text-slate-500">{revealedCount}/{drops.length} skrzynek</p>
-        {showTerminalHint && (
-          <p className="text-[10px] text-purple-400/70 mt-0.5 font-bold">Decyduje ostatnia skrzynka</p>
-        )}
-      </div>
+      {/* Running total — hidden for losers at done phase */}
+      {!(isDone && isLoser) && (
+        <div className={`text-center py-2 rounded-xl border ${
+          isDone && isActualWinner
+            ? "border-emerald-500/20 bg-emerald-500/5"
+            : team === "A"
+              ? "border-cyan-500/20 bg-cyan-500/5"
+              : team === "B"
+                ? "border-purple-500/20 bg-purple-500/5"
+                : "border-slate-700/30 bg-slate-900/40"
+        }`}>
+          <p className={`text-xl font-black font-mono ${
+            isDone && isActualWinner ? "text-emerald-300" :
+            team === "A" ? "text-cyan-300" :
+            team === "B" ? "text-purple-300" :
+            "text-slate-200"
+          }`}>
+            {formatMoney(currentTotal)}
+          </p>
+          <p className="text-[10px] text-slate-500">{revealedCount}/{drops.length} skrzynek</p>
+          {showTerminalHint && (
+            <p className="text-[10px] text-purple-400/70 mt-0.5 font-bold">Decyduje ostatnia skrzynka</p>
+          )}
+        </div>
+      )}
 
-      {showReel ? (
+      {/* Reel / between-steps — only during animation */}
+      {!isDone && showReel && (
         <BattleReelStrip
           key={`${participant.id}-step-${animStep}`}
           fillerDrops={fillerDrops}
           winner={currentDrop}
           durationMs={REEL_DURATION_MS}
         />
-      ) : betweenSteps ? (
+      )}
+      {!isDone && betweenSteps && (
         <div className="flex items-center justify-center rounded-xl border border-slate-700/30 bg-slate-950/40" style={{ height: 60 }}>
           <p className="text-xs text-slate-600 animate-pulse">Następna skrzynka…</p>
         </div>
-      ) : null}
+      )}
 
-      {revealedDrops.length > 0 && (
+      {/* Drops — only shown during animation; at done they move to DropsShowcase below */}
+      {!isDone && revealedDrops.length > 0 && (
         <div className="grid grid-cols-3 gap-1.5">
           {[...revealedDrops].reverse().map((drop) => (
             <RevealedDropCard key={drop.instanceId} drop={drop} />
           ))}
         </div>
       )}
-      {revealedDrops.length === 0 && (
+      {!isDone && revealedDrops.length === 0 && (
         <p className="text-[11px] text-slate-700 text-center py-2">Brak dropów</p>
       )}
+    </div>
+  );
+}
+
+// ─── Drops Showcase (shown below grid at done phase) ─────────────────────────
+
+function DropsShowcase({
+  battle,
+  result,
+  isTeams,
+}: {
+  battle: Battle;
+  result: NonNullable<Battle["result"]>;
+  isTeams: boolean;
+}) {
+  const colCount = battle.participants.length;
+  const gridCls =
+    colCount <= 2 ? "grid-cols-2" :
+    colCount === 3 ? "grid-cols-3" :
+    "grid-cols-2 xl:grid-cols-4";
+
+  return (
+    <div
+      className="glass-strong rounded-2xl border border-slate-700/30 p-4 space-y-4"
+      style={{ animation: "dropsIn 0.5s ease-out 0.3s both" }}
+    >
+      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+        Zdobyte przedmioty
+      </p>
+      <div className={`grid gap-4 ${gridCls}`}>
+        {battle.participants.map((p, idx) => {
+          const drops = result.dropsByParticipant[p.id] ?? [];
+          const isWinner =
+            result.winnerId === p.id ||
+            (isTeams && result.teamWinnerId != null && (idx < 2 ? "A" : "B") === result.teamWinnerId);
+          const total = drops.reduce((s, d) => s + d.valueCents, 0);
+          return (
+            <div key={p.id} className="space-y-2">
+              <div className="flex items-center gap-1.5">
+                {isWinner
+                  ? <Trophy className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  : <XIcon className="w-3.5 h-3.5 text-red-600/60 shrink-0" />
+                }
+                <p className={`text-xs font-bold truncate ${isWinner ? "text-emerald-400" : "text-slate-600"}`}>
+                  {p.name}
+                </p>
+                <span className={`ml-auto text-[10px] font-mono font-bold shrink-0 ${isWinner ? "text-emerald-500" : "text-slate-700"}`}>
+                  {formatMoney(total)}
+                </span>
+              </div>
+              {drops.length > 0 ? (
+                <div className="grid grid-cols-3 gap-1">
+                  {drops.map((drop) => (
+                    <RevealedDropCard key={drop.instanceId} drop={drop} />
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[10px] text-slate-700 py-1">—</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -866,6 +1037,9 @@ export function BattleRoom() {
 
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl space-y-5">
+      {/* Keyframe animations injected once per mount */}
+      <BattleAnimStyles />
+
       <div className="flex items-center gap-3">
         {backLocked
           ? <div className="w-9 shrink-0" />
@@ -883,7 +1057,8 @@ export function BattleRoom() {
 
       {battlePhase === "done" && <WinnerBanner battle={battle} result={result} />}
 
-      {isTeams && (
+      {/* Teams live score bar — only during animation, not at done (DropsShowcase takes over) */}
+      {isTeams && battlePhase !== "done" && (
         <div className="glass-strong rounded-xl border border-slate-700/30 p-4 flex items-center gap-4">
           <div className="flex-1 text-center">
             <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 mb-0.5">⚔ Team A</p>
@@ -897,6 +1072,7 @@ export function BattleRoom() {
         </div>
       )}
 
+      {/* Participant columns — compact at done phase (overlays visible, drops moved below) */}
       <div className={`grid gap-4 ${gridCls}`}>
         {battle.participants.map((p, idx) => (
           <ParticipantColumn
@@ -919,6 +1095,11 @@ export function BattleRoom() {
           />
         ))}
       </div>
+
+      {/* Drops showcase — replaces per-column drops at done phase (winner-takes-all modes) */}
+      {battlePhase === "done" && !isShared && (
+        <DropsShowcase battle={battle} result={result} isTeams={isTeams} />
+      )}
 
       {battlePhase === "done" && userWon && !isShared && <ConfettiEffect />}
 
