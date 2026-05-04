@@ -305,9 +305,10 @@ function ParticipantColumn({
   const currentTotal = revealedDrops.reduce((s, d) => s + d.valueCents, 0);
   const team = isTeams ? teamOf(slotIndex) : null;
   const mode = battle.mode;
-  // Use both local phase AND store status so the done layout never
-  // flickers on when mounting on an already-completed battle.
-  const isDone = battlePhase === "done" || battle.status === "completed";
+  // battlePhase is initialised to "done" on mount for completed battles,
+  // so this is the sole gate — never fallback to battle.status here or
+  // winner/loser overlays will bleed into the tiebreak animation phase.
+  const isDone = battlePhase === "done";
 
   const safeStep = animStep >= 0 ? animStep : 0;
   const currentStep = stepList[safeStep];
@@ -843,14 +844,9 @@ export function BattleRoom() {
               setBattlePhase("tiebreak");
             } else {
               setBattlePhase("done");
-              if (userWonRef.current) {
-                timers.push(window.setTimeout(() => {
-                  if (!lootModalFiredRef.current) {
-                    lootModalFiredRef.current = true;
-                    setShowLootModal(true);
-                  }
-                }, 3000));
-              }
+              // Loot popup is opened by the dedicated battlePhase==="done" effect
+              // below — do NOT put it in this timers[] or it gets cancelled when
+              // battle.status changes and triggers effect cleanup.
             }
           }
         }, PAUSE_BETWEEN_STEPS_MS);
@@ -884,12 +880,7 @@ export function BattleRoom() {
         setTiebreakHighlightId(winnerId);
         timers.push(window.setTimeout(() => {
           setBattlePhase("done");
-          if (userWonRef.current) timers.push(window.setTimeout(() => {
-            if (!lootModalFiredRef.current) {
-              lootModalFiredRef.current = true;
-              setShowLootModal(true);
-            }
-          }, 3000));
+          // Loot popup opened by dedicated battlePhase==="done" effect — no timer here.
         }, 700));
       }
     };
@@ -897,6 +888,19 @@ export function BattleRoom() {
     setTiebreakHighlightId(tied[0].id);
     timers.push(window.setTimeout(cycle, CYCLE_MS));
     return () => timers.forEach(clearTimeout);
+  }, [battlePhase]); // eslint-disable-line
+
+  // ── Loot popup — fires exactly once when phase becomes "done" ───────
+  // This is intentionally NOT inside the animation runner or tiebreak
+  // effects because those effects get cleaned up when battle.status
+  // changes (dependency), which cancels the timer before it can fire.
+  useEffect(() => {
+    if (battlePhase !== "done") return;
+    if (isShared) return;
+    if (!userWonRef.current) return;
+    if (lootModalFiredRef.current) return;
+    lootModalFiredRef.current = true;
+    setShowLootModal(true);
   }, [battlePhase]); // eslint-disable-line
 
   // Cleanup on unmount

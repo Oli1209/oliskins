@@ -1,0 +1,42 @@
+Fix critical battle end bugs:
+
+Winner end UI overlaps with in-progress UI.
+Winner loot popup does not appear.
+Winner rewards are not added to inventory.
+Constraints:
+
+Do not change winner selection logic.
+Prioritize correctness over fancy timing.
+=====================================================
+
+Enforce a strict battle phase render switch (no overlap)
+=====================================================
+Introduce/ensure a single battlePhase (or status) that is the ONLY gate for rendering:
+waiting / countdown / in_progress / completed
+When phase becomes completed, unmount/hide ALL in_progress UI (reels, “Przygotowanie…”, step runner visuals).
+Ensure no timers/intervals continue updating in_progress state after completion (clear them immediately).
+=====================================================
+2) Reward model: pending -> claim
+Ensure the battle result stores rewardItems for the user when eligible (winner in winner-takes-all).
+Ensure rewardStatus starts as unclaimed.
+Do NOT auto-claim on completion.
+=====================================================
+3) Guarantee loot popup appears for user winner
+On transition to completed, if user is eligible AND rewardStatus is unclaimed, open the loot popup immediately (no delay), or keep delay but with a single-run guard.
+Add a hard guard so popup opens exactly once:
+e.g. hasShownLootPopup boolean stored per battle or in component state keyed by battleId.
+=====================================================
+4) Guarantee Keep adds items to inventory
+Implement Keep action to add rewardItems to inventory as new InventoryItem instances (new instanceId, obtainedAt, source='battle', etc.).
+Implement Sell action to add total value to balance.
+After Keep/Sell, set rewardStatus accordingly and prevent re-adding on re-render.
+=====================================================
+5) Battle removal timing (do not break popup)
+Do NOT remove/delete the battle from active storage until AFTER rewardStatus is no longer unclaimed (kept/sold), OR user explicitly clicks “Wróć”.
+This prevents the battle from disappearing before the popup can show/claim.
+Acceptance:
+
+Completed phase shows only end UI (no overlap).
+If user wins, loot popup always appears.
+Keep reliably adds items to inventory; Sell reliably adds cash.
+No double-claim.
