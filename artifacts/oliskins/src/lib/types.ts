@@ -28,12 +28,23 @@ export const DEFAULT_MODE_PRICING: ModePricing = {
   jesterMult: 1.0,
 };
 
+export type ModeAvailability = {
+  boostEnabled: boolean;
+  jesterEnabled: boolean;
+};
+
+export const DEFAULT_MODE_AVAILABILITY: ModeAvailability = {
+  boostEnabled: true,
+  jesterEnabled: true,
+};
+
 export type Case = {
   id: string;
   name: string;
   description: string;
   priceCents: number;
   modePricing?: ModePricing;
+  modeAvailability?: ModeAvailability;
   image: string;
   drops: Drop[];
 };

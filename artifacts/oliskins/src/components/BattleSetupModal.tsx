@@ -5,7 +5,7 @@ import type { SelectedCase } from "../lib/battleTypes";
 import type { Mode } from "../lib/chances";
 import { getUnitCostCents } from "../lib/chances";
 import { formatMoney } from "../lib/format";
-import { isCaseValid, INVALID_CASE_MSG } from "../lib/types";
+import { isCaseValid, INVALID_CASE_MSG, DEFAULT_MODE_AVAILABILITY } from "../lib/types";
 
 type SortKey = "default" | "price-asc" | "price-desc";
 
@@ -199,22 +199,30 @@ export function CaseSelectorModal({ onAdd, onClose }: Props) {
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Tryb otwarcia</p>
                 <div className="grid grid-cols-3 gap-2">
-                  {(["normal", "boost", "jester"] as Mode[]).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setOpenMode(m)}
-                      className={`py-3 rounded-xl border text-xs font-black transition-all ${
-                        openMode === m
-                          ? OPEN_MODE_COLORS[m]
-                          : "border-slate-700/40 bg-slate-900/50 text-slate-500 hover:border-slate-500"
-                      }`}
-                    >
-                      {OPEN_MODE_LABELS[m]}
-                      {m === "boost" && <span className="block text-[9px] font-normal opacity-70 mt-0.5">+szansa na drogie</span>}
-                      {m === "jester" && <span className="block text-[9px] font-normal opacity-70 mt-0.5">równa szansa</span>}
-                    </button>
-                  ))}
+                  {(["normal", "boost", "jester"] as Mode[]).map((m) => {
+                    const ma = pickedCase.modeAvailability ?? DEFAULT_MODE_AVAILABILITY;
+                    const modeDisabled = (m === "boost" && !ma.boostEnabled) || (m === "jester" && !ma.jesterEnabled);
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => !modeDisabled && setOpenMode(m)}
+                        disabled={modeDisabled}
+                        className={`py-3 rounded-xl border text-xs font-black transition-all disabled:cursor-not-allowed ${
+                          modeDisabled
+                            ? "border-slate-800/40 bg-slate-950/30 text-slate-700 opacity-60"
+                            : openMode === m
+                            ? OPEN_MODE_COLORS[m]
+                            : "border-slate-700/40 bg-slate-900/50 text-slate-500 hover:border-slate-500"
+                        }`}
+                      >
+                        {OPEN_MODE_LABELS[m]}
+                        {modeDisabled && <span className="block text-[9px] font-normal opacity-80 mt-0.5">Wyłączone</span>}
+                        {!modeDisabled && m === "boost" && <span className="block text-[9px] font-normal opacity-70 mt-0.5">+szansa na drogie</span>}
+                        {!modeDisabled && m === "jester" && <span className="block text-[9px] font-normal opacity-70 mt-0.5">równa szansa</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

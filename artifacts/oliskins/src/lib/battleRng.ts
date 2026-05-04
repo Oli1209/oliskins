@@ -1,6 +1,16 @@
 import type { Case } from "./types";
+import { DEFAULT_MODE_AVAILABILITY } from "./types";
 import { getEffectiveDrops } from "./chances";
+import type { Mode } from "./chances";
 import type { Battle, BattleDrop, BattleResult, SelectedCase } from "./battleTypes";
+
+/** Falls back to "normal" if the case has disabled this open mode. */
+function resolveOpenMode(caseData: Case, openMode: Mode): Mode {
+  const ma = caseData.modeAvailability ?? DEFAULT_MODE_AVAILABILITY;
+  if (openMode === "boost" && !ma.boostEnabled) return "normal";
+  if (openMode === "jester" && !ma.jesterEnabled) return "normal";
+  return openMode;
+}
 
 // ─── LCG seeded RNG ───────────────────────────────────────────────────────────
 
@@ -103,8 +113,10 @@ export function precomputeBattleResult(
       const thisStep = stepIndex++;
       const thisGroup = groupIndex;
 
+      const resolvedMode = resolveOpenMode(caseData, sc.openMode);
+
       for (const p of battle.participants) {
-        const effectiveDrops = getEffectiveDrops(caseData, sc.openMode);
+        const effectiveDrops = getEffectiveDrops(caseData, resolvedMode);
         const pickable = effectiveDrops.map((d) => ({ ...d, weight: d.effectiveWeight }));
         const drop = pickWeightedSeeded(pickable, rng);
 
@@ -121,7 +133,7 @@ export function precomputeBattleResult(
           stepIndex: thisStep,
           groupIndex: thisGroup,
           caseId: caseData.id,
-          openMode: sc.openMode,
+          openMode: resolvedMode,
           chanceAtDrop,
         });
       }

@@ -6,8 +6,8 @@ import {
 import { useCaseStore } from "../store/useCaseStore";
 import { rarityColors, RARITY_ORDER, rarityLabelPl } from "../lib/rarity";
 import { formatMoney } from "../lib/format";
-import type { Case, Drop, Rarity, ModePricing } from "../lib/types";
-import { DEFAULT_MODE_PRICING } from "../lib/types";
+import type { Case, Drop, Rarity, ModePricing, ModeAvailability } from "../lib/types";
+import { DEFAULT_MODE_PRICING, DEFAULT_MODE_AVAILABILITY } from "../lib/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -32,6 +32,7 @@ function newCase(): Case {
     id: crypto.randomUUID(), name, description: "",
     priceCents: 100, image: makeSvgPlaceholder(name),
     modePricing: { ...DEFAULT_MODE_PRICING },
+    modeAvailability: { ...DEFAULT_MODE_AVAILABILITY },
     drops: [newDrop()],
   };
 }
@@ -195,7 +196,12 @@ function CaseEditor({ caseId, onDeselect }: { caseId: string; onDeselect: () => 
 
   const [draft, setDraft] = useState<Case>(() =>
     source
-      ? { ...source, drops: source.drops.map((d) => ({ ...d })), modePricing: source.modePricing ?? { ...DEFAULT_MODE_PRICING } }
+      ? {
+          ...source,
+          drops: source.drops.map((d) => ({ ...d })),
+          modePricing: source.modePricing ?? { ...DEFAULT_MODE_PRICING },
+          modeAvailability: source.modeAvailability ?? { ...DEFAULT_MODE_AVAILABILITY },
+        }
       : newCase()
   );
   const [saved, setSaved] = useState(false);
@@ -203,15 +209,24 @@ function CaseEditor({ caseId, onDeselect }: { caseId: string; onDeselect: () => 
   // Resets draft if case changes externally (e.g. import)
   const stableId = draft.id;
   if (stableId !== caseId && source) {
-    setDraft({ ...source, drops: source.drops.map((d) => ({ ...d })), modePricing: source.modePricing ?? { ...DEFAULT_MODE_PRICING } });
+    setDraft({
+      ...source,
+      drops: source.drops.map((d) => ({ ...d })),
+      modePricing: source.modePricing ?? { ...DEFAULT_MODE_PRICING },
+      modeAvailability: source.modeAvailability ?? { ...DEFAULT_MODE_AVAILABILITY },
+    });
   }
 
   const mp: ModePricing = draft.modePricing ?? DEFAULT_MODE_PRICING;
+  const ma: ModeAvailability = draft.modeAvailability ?? DEFAULT_MODE_AVAILABILITY;
   const totalWeight = draft.drops.reduce((s, d) => s + d.weight, 0);
   const { caseErrors, dropErrors, valid } = useMemo(() => validateCase(draft), [draft]);
 
   const setMp = (patch: Partial<ModePricing>) =>
     setDraft((prev) => ({ ...prev, modePricing: { ...(prev.modePricing ?? DEFAULT_MODE_PRICING), ...patch } }));
+
+  const setMa = (patch: Partial<ModeAvailability>) =>
+    setDraft((prev) => ({ ...prev, modeAvailability: { ...(prev.modeAvailability ?? DEFAULT_MODE_AVAILABILITY), ...patch } }));
 
   const setDrop = (i: number, d: Drop) =>
     setDraft((prev) => ({ ...prev, drops: prev.drops.map((x, j) => (j === i ? d : x)) }));
@@ -354,6 +369,48 @@ function CaseEditor({ caseId, onDeselect }: { caseId: string; onDeselect: () => 
               <p className={`text-sm font-black font-mono ${color}`}>{formatMoney(cost)}</p>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Mode availability */}
+      <div className="glass-strong rounded-2xl border border-slate-700/30 p-5 space-y-4">
+        <h3 className="text-sm font-black text-slate-200">Dostępne tryby</h3>
+        <p className="text-[11px] text-slate-500">
+          Wyłączone tryby będą niedostępne przy otwieraniu i w bitwach — automatyczny fallback do Normal.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {([
+            { key: "boostEnabled" as const, label: "Boost", color: "amber" },
+            { key: "jesterEnabled" as const, label: "Jester", color: "purple" },
+          ] as const).map(({ key, label, color }) => {
+            const enabled = ma[key];
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setMa({ [key]: !enabled })}
+                className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition-all ${
+                  enabled
+                    ? color === "amber"
+                      ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                      : "border-purple-500/40 bg-purple-500/10 text-purple-200"
+                    : "border-slate-700/40 bg-slate-900/40 text-slate-500"
+                }`}
+              >
+                <span className="text-sm font-black">{label}</span>
+                <span
+                  className={`flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider ${
+                    enabled ? "text-emerald-400" : "text-slate-600"
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${enabled ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" : "bg-slate-700"}`}
+                  />
+                  {enabled ? "Włączony" : "Wyłączony"}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { X } from "lucide-react";
-import { Case, InventoryItem } from "../lib/types";
+import { Case, InventoryItem, DEFAULT_MODE_AVAILABILITY } from "../lib/types";
 import { useGameStore } from "../store/useGameStore";
 import { useCaseStore } from "../store/useCaseStore";
 import { formatMoney } from "../lib/format";
@@ -27,12 +27,21 @@ type RollResult = {
 
 const QUANTITY_OPTIONS: Quantity[] = [1, 2, 3, 4, 5];
 
-function getModeOptions(caseData: Case): ReadonlyArray<{ id: Mode; label: string; hint: string }> {
+function getModeOptions(caseData: Case): ReadonlyArray<{ id: Mode; label: string; hint: string; disabled: boolean }> {
   const mp = caseData.modePricing ?? { boostMult: 2.0, jesterMult: 1.0 };
+  const ma = caseData.modeAvailability ?? DEFAULT_MODE_AVAILABILITY;
   return [
-    { id: "normal", label: "Normal", hint: "Standardowe szanse" },
-    { id: "boost", label: "Boost", hint: `×${mp.boostMult.toFixed(2)} cena, x2 szansa na drogie` },
-    { id: "jester", label: "Jester", hint: `×${mp.jesterMult.toFixed(2)} cena, równe szanse` },
+    { id: "normal", label: "Normal", hint: "Standardowe szanse", disabled: false },
+    {
+      id: "boost", label: "Boost",
+      hint: ma.boostEnabled ? `×${mp.boostMult.toFixed(2)} cena, x2 szansa na drogie` : "Wyłączone dla tej skrzynki",
+      disabled: !ma.boostEnabled,
+    },
+    {
+      id: "jester", label: "Jester",
+      hint: ma.jesterEnabled ? `×${mp.jesterMult.toFixed(2)} cena, równe szanse` : "Wyłączone dla tej skrzynki",
+      disabled: !ma.jesterEnabled,
+    },
   ];
 }
 
@@ -95,6 +104,13 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
       document.body.style.overflow = prev;
     };
   }, []);
+
+  // Auto-fallback: if the currently selected mode gets disabled for this case, reset to normal
+  useEffect(() => {
+    const ma = caseData.modeAvailability ?? DEFAULT_MODE_AVAILABILITY;
+    if (mode === "boost" && !ma.boostEnabled) setMode("normal");
+    if (mode === "jester" && !ma.jesterEnabled) setMode("normal");
+  }, [caseData.modeAvailability, mode]);
 
   const handleOpen = () => {
     if (interactionLocked) return;
@@ -191,16 +207,19 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
               <div className="grid grid-cols-3 gap-2">
                 {getModeOptions(caseData).map((opt) => {
                   const selected = mode === opt.id;
+                  const isDisabled = opt.disabled || interactionLocked;
                   return (
                     <button
                       key={opt.id}
                       type="button"
-                      onClick={() => handleModeChange(opt.id)}
-                      disabled={interactionLocked}
+                      onClick={() => !opt.disabled && handleModeChange(opt.id)}
+                      disabled={isDisabled}
                       aria-pressed={selected}
                       title={opt.hint}
-                      className={`relative px-3 py-3 rounded-lg border text-sm font-bold text-center select-none transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                        selected
+                      className={`relative px-3 py-3 rounded-lg border text-sm font-bold text-center select-none transition-all disabled:cursor-not-allowed ${
+                        opt.disabled
+                          ? "bg-slate-950/40 border-slate-800/40 text-slate-700 opacity-60"
+                          : selected
                           ? "bg-cyan-500/20 border-cyan-400/70 text-cyan-100 shadow-[0_0_18px_rgba(34,211,238,0.25)]"
                           : "bg-slate-900/50 border-slate-700/40 text-slate-300 hover:border-cyan-500/40 hover:text-cyan-200"
                       }`}
@@ -208,7 +227,7 @@ function CaseDetailsModalInner({ caseData }: { caseData: Case }) {
                       <span className="block">{opt.label}</span>
                       <span
                         className={`block text-[9px] font-medium uppercase tracking-wider mt-0.5 ${
-                          selected ? "text-cyan-200/80" : "text-slate-500"
+                          opt.disabled ? "text-slate-700" : selected ? "text-cyan-200/80" : "text-slate-500"
                         }`}
                       >
                         {opt.hint}
