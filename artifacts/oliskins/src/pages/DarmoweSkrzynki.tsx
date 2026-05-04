@@ -1,6 +1,6 @@
 import { Link, Outlet } from "react-router-dom";
 import { Lock, Gift, Clock, Check } from "lucide-react";
-import { freeCases } from "../data/freeCases";
+import { useFreeCaseStore } from "../store/useFreeCaseStore";
 import { useGameStore } from "../store/useGameStore";
 import { computeLevel } from "../lib/types";
 import { GlassCard } from "../components/GlassCard";
@@ -8,9 +8,15 @@ import { rarityColors } from "../lib/rarity";
 import { useFreeCooldown, formatCooldown } from "../hooks/useFreeCooldown";
 
 export function DarmoweSkrzynki() {
+  const freeCases = useFreeCaseStore((s) => s.freeCases);
   const xp = useGameStore((s) => s.xp);
   const level = computeLevel(xp);
   const { msLeft, ready } = useFreeCooldown();
+
+  // Sort by requiredLevel ascending so tiers appear in order
+  const sortedCases = [...freeCases].sort(
+    (a, b) => (a.requiredLevel ?? 1) - (b.requiredLevel ?? 1)
+  );
 
   return (
     <div className="container mx-auto px-4 py-8 relative">
@@ -50,8 +56,10 @@ export function DarmoweSkrzynki() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {freeCases.map((c) => {
-          const isLocked = level < c.requiredLevel;
+        {sortedCases.map((c) => {
+          const requiredLevel = c.requiredLevel ?? 1;
+          const tier = c.tier ?? 1;
+          const isLocked = level < requiredLevel;
           const canOpen = !isLocked && ready;
           const target = `/darmowe-skrzynki/${c.id}`;
 
@@ -73,7 +81,7 @@ export function DarmoweSkrzynki() {
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
                   <div className="absolute top-3 left-3">
                     <span className="text-[10px] uppercase tracking-wider font-black px-2 py-1 rounded bg-emerald-950/80 backdrop-blur-md border border-emerald-400/40 text-emerald-300">
-                      Tier {c.tier}
+                      Tier {tier}
                     </span>
                   </div>
                   {isLocked && (
@@ -81,7 +89,7 @@ export function DarmoweSkrzynki() {
                       <div className="flex flex-col items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-950/80 border border-amber-400/40">
                         <Lock className="w-6 h-6 text-amber-300" />
                         <span className="text-xs uppercase tracking-wider font-bold text-amber-200">
-                          Wymagany poziom: {c.requiredLevel}
+                          Wymagany poziom: {requiredLevel}
                         </span>
                       </div>
                     </div>
@@ -114,7 +122,7 @@ export function DarmoweSkrzynki() {
                     <>
                       <Lock className="w-4 h-4 text-amber-300" />
                       <span className="text-amber-300">
-                        Wymagany poziom: {c.requiredLevel}
+                        Wymagany poziom: {requiredLevel}
                       </span>
                     </>
                   ) : (

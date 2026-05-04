@@ -1,40 +1,30 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { X, Gift, Lock } from "lucide-react";
-import { FreeCase, InventoryItem, computeLevel } from "../lib/types";
+import { Case, InventoryItem, computeLevel } from "../lib/types";
 import { useGameStore } from "../store/useGameStore";
-import { freeCases } from "../data/freeCases";
+import { useFreeCaseStore } from "../store/useFreeCaseStore";
 import { formatMoney } from "../lib/format";
 import { rarityColors } from "../lib/rarity";
 import { FreeCaseReelStrip } from "./FreeCaseReelStrip";
 import { OpeningSummary } from "./OpeningSummary";
 import { formatChance } from "../lib/chances";
 import { useFreeCooldown, formatCooldown } from "../hooks/useFreeCooldown";
-import { Case } from "../lib/types";
 
 type RollResult = {
   key: string;
   winner: InventoryItem;
 };
 
-function freeCaseToCase(fc: FreeCase): Case {
-  return {
-    id: fc.id,
-    name: fc.name,
-    description: fc.description,
-    priceCents: 0,
-    image: fc.image,
-    drops: fc.drops,
-  };
-}
-
-function FreeCaseModalInner({ caseData }: { caseData: FreeCase }) {
+function FreeCaseModalInner({ caseData }: { caseData: Case }) {
   const navigate = useNavigate();
   const openFreeCase = useGameStore((s) => s.openFreeCase);
   const xp = useGameStore((s) => s.xp);
 
+  const tier = caseData.tier ?? 1;
+  const requiredLevel = caseData.requiredLevel ?? 1;
   const level = computeLevel(xp);
-  const isLockedByLevel = level < caseData.requiredLevel;
+  const isLockedByLevel = level < requiredLevel;
 
   const { msLeft, ready } = useFreeCooldown();
 
@@ -85,7 +75,7 @@ function FreeCaseModalInner({ caseData }: { caseData: FreeCase }) {
     if (!r.ok) {
       if (r.reason === "cooldown") setError("Cooldown jeszcze nie minął.");
       else if (r.reason === "locked_level")
-        setError(`Wymagany poziom: ${caseData.requiredLevel}`);
+        setError(`Wymagany poziom: ${requiredLevel}`);
       else setError("Nie udało się otworzyć skrzynki.");
       return;
     }
@@ -108,8 +98,6 @@ function FreeCaseModalInner({ caseData }: { caseData: FreeCase }) {
     setSummaryItems(null);
   };
 
-  const reelCaseData = freeCaseToCase(caseData);
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/85 backdrop-blur-xl animate-in fade-in duration-200"
@@ -126,7 +114,7 @@ function FreeCaseModalInner({ caseData }: { caseData: FreeCase }) {
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-bold uppercase tracking-[0.3em] text-emerald-400/80 flex items-center gap-2">
-                <Gift className="w-3.5 h-3.5" /> Darmowa skrzynia · Tier {caseData.tier}
+                <Gift className="w-3.5 h-3.5" /> Darmowa skrzynia · Tier {tier}
               </p>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-100 mt-1.5 truncate">
                 {caseData.name}
@@ -139,7 +127,7 @@ function FreeCaseModalInner({ caseData }: { caseData: FreeCase }) {
                   Wymagany poziom
                 </span>
                 <span className="text-emerald-400 font-mono text-xl font-bold drop-shadow-[0_0_8px_rgba(52,211,153,0.4)]">
-                  {caseData.requiredLevel}
+                  {requiredLevel}
                 </span>
                 <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500 ml-3">
                   Twój poziom
@@ -164,7 +152,7 @@ function FreeCaseModalInner({ caseData }: { caseData: FreeCase }) {
         <div className="rounded-2xl border border-cyan-500/20 bg-gradient-to-b from-slate-950/70 to-slate-900/40 p-4 sm:p-6 mb-6 lg:mb-8">
           {result ? (
             <FreeCaseReelStrip
-              caseData={reelCaseData}
+              caseData={caseData}
               winningItem={result.winner}
               onResolved={onResolved}
               tileSize={tileSize}
@@ -209,7 +197,7 @@ function FreeCaseModalInner({ caseData }: { caseData: FreeCase }) {
             )}
             {isLockedByLevel && (
               <p className="text-amber-300/80 text-xs mt-2 text-center font-semibold flex items-center justify-center gap-1.5">
-                <Lock className="w-3 h-3" /> Wymagany poziom: {caseData.requiredLevel}
+                <Lock className="w-3 h-3" /> Wymagany poziom: {requiredLevel}
               </p>
             )}
           </div>
@@ -295,6 +283,7 @@ function FreeCaseModalInner({ caseData }: { caseData: FreeCase }) {
 export function FreeCaseRoute() {
   const { caseId } = useParams();
   const navigate = useNavigate();
+  const freeCases = useFreeCaseStore((s) => s.freeCases);
   const caseData = freeCases.find((c) => c.id === caseId);
 
   useEffect(() => {

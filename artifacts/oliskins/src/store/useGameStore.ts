@@ -11,7 +11,7 @@ import {
 } from "../lib/types";
 import { migrateRarity } from "../lib/rarity";
 import { useCaseStore } from "./useCaseStore";
-import { freeCases } from "../data/freeCases";
+import { useFreeCaseStore } from "./useFreeCaseStore";
 import { pickWeighted } from "../lib/random";
 import { getEffectiveDrops, getTotalCostCents } from "../lib/chances";
 
@@ -134,11 +134,12 @@ export const useGameStore = create<GameState>()(
 
       openFreeCase: (caseId) => {
         const state = get();
-        const caseData = freeCases.find((c) => c.id === caseId);
+        const caseData = useFreeCaseStore.getState().freeCases.find((c) => c.id === caseId);
         if (!caseData) return { ok: false, reason: "unknown_case" };
 
         const level = computeLevel(state.xp);
-        if (level < caseData.requiredLevel)
+        const requiredLevel = caseData.requiredLevel ?? 1;
+        if (level < requiredLevel)
           return { ok: false, reason: "locked_level" };
 
         const now = Date.now();

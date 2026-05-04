@@ -45,6 +45,10 @@ export type Case = {
   priceCents: number;
   modePricing?: ModePricing;
   modeAvailability?: ModeAvailability;
+  /** Free cases only: tier number (1–5) */
+  tier?: number;
+  /** Free cases only: minimum player level required to open */
+  requiredLevel?: number;
   image: string;
   drops: Drop[];
 };

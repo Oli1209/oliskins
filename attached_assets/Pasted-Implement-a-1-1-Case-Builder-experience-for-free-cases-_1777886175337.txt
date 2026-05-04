@@ -1,0 +1,50 @@
+Implement a 1:1 Case Builder experience for free cases, using the same editor UI but a separate dataset and persistence key. Keep changes safe and avoid mixing paid/free sources of truth.
+
+=====================================================
+
+Create a separate persisted store for free cases
+=====================================================
+Create useFreeCaseStore (Zustand) persisted under key: oliskins_free_cases_v1.
+Store shape:
+freeCases: Case[]
+CRUD actions similar to paid cases store (add/edit/delete case, add/edit/delete drops).
+Initialize on first run with the current built-in free cases (the 5 tiered ones you already have).
+Constraints for free cases:
+
+Free cases do NOT support Boost/Jester:
+In the free editor, do not show modeAvailability or modePricing sections related to Boost/Jester.
+Free case opening in the app must remain Normal-only and quantity=1 (as currently).
+=====================================================
+2) Update the editor route to support tabs (Paid / Free)
+In the existing editor page (/edytor-skrzynek or similar), add a top tab switch:
+“Skrzynki płatne”
+“Skrzynki darmowe”
+The UI layout is the same (two-panel):
+left: cases list + add new
+right: selected case editor + drops editor
+When switching tabs, the editor operates on the selected dataset (paidCases store vs freeCases store).
+=====================================================
+3) Export/Import per tab (separate)
+Export and import must be per tab and must NOT affect the other dataset.
+Use wrapper format with versioning:
+Paid: { schemaVersion: 1, paidCases: [...] }
+Free: { schemaVersion: 1, freeCases: [...] }
+Import must overwrite the dataset after a Polish confirmation dialog.
+Validate with Zod schema; show readable Polish error messages if invalid.
+=====================================================
+4) Wire free cases into the app
+Update the “Darmowe skrzynki” feature/page to read free cases from useFreeCaseStore.freeCases instead of hardcoded data.
+Keep existing level-gating behavior:
+each free case should define a required level (add requiredLevel to free case objects if not already present).
+Keep global cooldown logic as-is.
+If the current free-case tier logic is hardcoded by level ranges, refactor it to be data-driven:
+
+each free case has requiredLevel (e.g. 1, 20, 30, 40, 50)
+UI shows locked/unlocked based on user level.
+=====================================================
+5) Acceptance
+The editor has two tabs and both work independently.
+Free cases persist after refresh.
+Export/import works separately for free cases.
+The free cases page reflects edited free cases immediately.
+Free case opening stays Normal-only and quantity=1.
