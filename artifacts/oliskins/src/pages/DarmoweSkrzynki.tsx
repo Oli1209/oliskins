@@ -7,6 +7,31 @@ import { getLevelFromSpend } from "../lib/types";
 import { GlassCard } from "../components/GlassCard";
 import { rarityColors } from "../lib/rarity";
 import { useFreeCooldown, formatCooldown } from "../hooks/useFreeCooldown";
+import type { Case } from "../lib/types";
+
+function Top3Drops({ drops, muted }: { drops: Case["drops"]; muted?: boolean }) {
+  const top3 = [...drops].sort((a, b) => b.valueCents - a.valueCents).slice(0, 3);
+  return (
+    <div className="mb-4">
+      <span className="text-[10px] uppercase tracking-wider font-bold text-slate-600 block mb-2">
+        Top 3 dropy
+      </span>
+      <div className="flex flex-wrap gap-1.5">
+        {top3.map((drop) => {
+          const r = rarityColors[drop.rarity];
+          return (
+            <span
+              key={drop.id}
+              className={`text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded border bg-black/40 ${r.border} ${r.text} ${muted ? "opacity-50" : ""}`}
+            >
+              {drop.name}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export function DarmoweSkrzynki() {
   const freeCases = useFreeCaseStore((s) => s.freeCases);
@@ -14,7 +39,6 @@ export function DarmoweSkrzynki() {
   const level = getLevelFromSpend(qualifyingSpendCents / 100);
   const { msLeft, ready } = useFreeCooldown();
 
-  // Sort by requiredLevel ascending so tiers appear in order
   const sortedCases = [...freeCases].sort(
     (a, b) => (a.requiredLevel ?? 1) - (b.requiredLevel ?? 1)
   );
@@ -66,20 +90,19 @@ export function DarmoweSkrzynki() {
 
           const cardInner = (
             <GlassCard
-              className={`flex flex-col p-0 relative overflow-hidden h-full transition-transform duration-200 ${
-                canOpen ? "group-hover:scale-[1.025]" : ""
-              } ${isLocked ? "opacity-70" : ""}`}
+              className={`flex flex-col p-0 relative overflow-hidden h-full ${isLocked ? "opacity-70" : ""}`}
             >
               <div className="p-6 pb-0 flex-1">
+                {/* Case image */}
                 <div className="relative aspect-video mb-6 rounded-lg overflow-hidden border border-emerald-500/20 bg-black/40">
                   <CaseImg
                     src={c.image}
                     alt={c.name}
-                    className={`w-full h-full object-cover opacity-80 mix-blend-screen transition-transform duration-500 ${
+                    className={`w-full h-full object-contain opacity-90 transition-transform duration-500 ${
                       canOpen ? "group-hover:scale-105" : ""
                     } ${isLocked ? "grayscale" : ""}`}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 to-transparent pointer-events-none" />
                   <div className="absolute top-3 left-3">
                     <span className="text-[10px] uppercase tracking-wider font-black px-2 py-1 rounded bg-emerald-950/80 backdrop-blur-md border border-emerald-400/40 text-emerald-300">
                       Tier {tier}
@@ -96,25 +119,16 @@ export function DarmoweSkrzynki() {
                     </div>
                   )}
                 </div>
+
                 <h2 className="text-2xl font-bold text-slate-100 mb-2">
                   {c.name}
                 </h2>
-                <p className="text-slate-400 text-sm mb-6 min-h-[40px]">
+                <p className="text-slate-400 text-sm mb-4 min-h-[40px]">
                   {c.description}
                 </p>
-                <div className="flex flex-wrap gap-2 mb-6">
-                  {c.drops.map((drop) => {
-                    const r = rarityColors[drop.rarity];
-                    return (
-                      <span
-                        key={drop.id}
-                        className={`text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded border bg-black/40 ${r.border} ${r.text}`}
-                      >
-                        {drop.name}
-                      </span>
-                    );
-                  })}
-                </div>
+
+                {/* Top 3 drops */}
+                {c.drops.length > 0 && <Top3Drops drops={c.drops} muted={isLocked} />}
               </div>
 
               <div className="px-6 py-5 mt-auto border-t border-emerald-500/10 bg-slate-950/40 flex items-center justify-between gap-3">

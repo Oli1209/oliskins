@@ -1,12 +1,16 @@
 import { useState } from "react";
+import { ImageOff } from "lucide-react";
 
 /**
- * Fallback shown when src is empty or fails to load.
- * A minimal dark SVG with a question-mark box — keeps layout intact.
+ * Transforms GitHub blob URLs to raw.githubusercontent.com equivalents.
+ * https://github.com/user/repo/blob/branch/path → https://raw.githubusercontent.com/user/repo/branch/path
  */
-const FALLBACK_SRC = `data:image/svg+xml;utf8,${encodeURIComponent(
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 6"><rect width="8" height="6" fill="#0f172a"/><rect x="0.5" y="0.5" width="7" height="5" rx="0.4" fill="none" stroke="#1e293b" stroke-width="0.5"/><text x="4" y="3.3" dominant-baseline="middle" text-anchor="middle" fill="#334155" font-family="sans-serif" font-size="2" font-weight="bold">?</text></svg>'
-)}`;
+function toRawUrl(src: string): string {
+  return src.replace(
+    /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/(.+)$/,
+    "https://raw.githubusercontent.com/$1/$2/$3"
+  );
+}
 
 interface CaseImgProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, "src"> {
   src?: string;
@@ -15,11 +19,13 @@ interface CaseImgProps extends Omit<React.ImgHTMLAttributes<HTMLImageElement>, "
 /**
  * Drop-in replacement for <img> when rendering case images.
  *
- * - Falls back to a placeholder SVG when src is empty or fails to load.
+ * - Transforms GitHub blob URLs to raw.githubusercontent.com automatically.
+ * - Falls back to a clean "Brak obrazka" placeholder when src is empty or fails.
  * - Guards against infinite error loops (only replaces src once per url).
  * - Resets automatically when the src prop changes (editor live-preview).
+ * - Adds loading="lazy" + referrerPolicy="no-referrer" by default.
  */
-export function CaseImg({ src, ...rest }: CaseImgProps) {
+export function CaseImg({ src, className, alt, ...rest }: CaseImgProps) {
   const [trackedSrc, setTrackedSrc] = useState<string | undefined>(src);
   const [errored, setErrored] = useState(false);
 
@@ -28,12 +34,27 @@ export function CaseImg({ src, ...rest }: CaseImgProps) {
     setErrored(false);
   }
 
-  const effectiveSrc = !src || !src.trim() || errored ? FALLBACK_SRC : src;
+  const isEmpty = !src || !src.trim();
+  const showFallback = isEmpty || errored;
+  const effectiveSrc = isEmpty ? "" : toRawUrl(src.trim());
+
+  if (showFallback) {
+    return (
+      <div className={`flex flex-col items-center justify-center gap-2 bg-slate-950/60 ${className ?? ""}`}>
+        <ImageOff className="w-8 h-8 text-slate-700" strokeWidth={1.5} />
+        <span className="text-[11px] text-slate-600 font-medium tracking-wide">Brak obrazka</span>
+      </div>
+    );
+  }
 
   return (
     <img
       {...rest}
       src={effectiveSrc}
+      alt={alt}
+      className={className}
+      loading="lazy"
+      referrerPolicy="no-referrer"
       onError={() => {
         if (!errored) setErrored(true);
       }}

@@ -6,6 +6,64 @@ import { rarityColors } from "../lib/rarity";
 import { GlassCard } from "../components/GlassCard";
 import { CaseImg } from "../components/CaseImg";
 import { isCaseValid, INVALID_CASE_MSG } from "../lib/types";
+import type { Case } from "../lib/types";
+
+function Top3Drops({ drops }: { drops: Case["drops"] }) {
+  const top3 = [...drops].sort((a, b) => b.valueCents - a.valueCents).slice(0, 3);
+  return (
+    <div className="mb-4">
+      <span className="text-[10px] uppercase tracking-wider font-bold text-slate-600 block mb-2">
+        Top 3 dropy
+      </span>
+      <div className="flex flex-wrap gap-1.5">
+        {top3.map((drop) => {
+          const r = rarityColors[drop.rarity];
+          return (
+            <span
+              key={drop.id}
+              className={`text-xs font-bold uppercase tracking-wide px-2.5 py-1 rounded border bg-black/40 ${r.border} ${r.text}`}
+            >
+              {drop.name}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ModeBadges({ c }: { c: Case }) {
+  const boostOn = c.modeAvailability?.boostEnabled !== false;
+  const jesterOn = c.modeAvailability?.jesterEnabled !== false;
+  return (
+    <div className="flex items-center gap-1.5 mb-5 flex-wrap">
+      <span className="text-[10px] uppercase tracking-wider font-bold text-slate-600 mr-0.5">
+        Tryby:
+      </span>
+      <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded bg-slate-800/60 border border-slate-600/40 text-slate-300">
+        Normal
+      </span>
+      <span
+        className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded border transition-opacity ${
+          boostOn
+            ? "bg-amber-500/15 border-amber-500/40 text-amber-300"
+            : "bg-slate-900/40 border-slate-800/40 text-slate-600 opacity-40"
+        }`}
+      >
+        Boost{!boostOn && " · OFF"}
+      </span>
+      <span
+        className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded border transition-opacity ${
+          jesterOn
+            ? "bg-purple-500/15 border-purple-500/40 text-purple-300"
+            : "bg-slate-900/40 border-slate-800/40 text-slate-600 opacity-40"
+        }`}
+      >
+        Jester{!jesterOn && " · OFF"}
+      </span>
+    </div>
+  );
+}
 
 export function Skrzynki() {
   const balanceCents = useGameStore((s) => s.balanceCents);
@@ -29,33 +87,28 @@ export function Skrzynki() {
           const card = (
             <GlassCard className={`flex flex-col p-0 relative overflow-hidden h-full ${!valid ? "opacity-60" : ""}`}>
               <div className="p-6 pb-0 flex-1">
+                {/* Case image */}
                 <div className="relative aspect-video mb-6 rounded-lg overflow-hidden border border-cyan-500/20 bg-black/40">
                   <CaseImg
                     src={c.image}
                     alt={c.name}
-                    className="w-full h-full object-cover opacity-80 mix-blend-screen transition-transform duration-500 group-hover:scale-105"
+                    className="w-full h-full object-contain opacity-90 transition-transform duration-500 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/70 to-transparent pointer-events-none" />
                 </div>
+
                 <h2 className="text-2xl font-bold text-slate-100 mb-2">
                   {c.name}
                 </h2>
-                <p className="text-slate-400 text-sm mb-6 min-h-[40px]">
+                <p className="text-slate-400 text-sm mb-4 min-h-[40px]">
                   {c.description}
                 </p>
-                <div className="flex flex-wrap gap-2 mb-6">
-                  {c.drops.map((drop) => {
-                    const r = rarityColors[drop.rarity];
-                    return (
-                      <span
-                        key={drop.id}
-                        className={`text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded border bg-black/40 ${r.border} ${r.text}`}
-                      >
-                        {drop.name}
-                      </span>
-                    );
-                  })}
-                </div>
+
+                {/* Top 3 drops */}
+                {c.drops.length > 0 && <Top3Drops drops={c.drops} />}
+
+                {/* Mode availability */}
+                <ModeBadges c={c} />
               </div>
 
               <div className="px-6 py-5 mt-auto border-t border-cyan-500/10 bg-slate-950/40 flex items-center justify-between">
