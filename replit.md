@@ -50,8 +50,11 @@ See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and pa
 ### Case Builder Editor (`EdytorSkrzynek`)
 
 Two-tab editor: **Płatne** (paid) / **Darmowe** (free).
-- Paid tab: shows `priceCents`, `modePricing` (Boost/Jester multipliers), `modeAvailability` toggles.
+- Paid tab: shows `priceCents`, `modePricing` (Boost/Jester multipliers + `boostWeightMult`), `modeAvailability` toggles.
 - Free tab: shows `tier` (1–5) + `requiredLevel` (≥1); hides price/mode sections; locks `priceCents` to 0.
+- Drop table has a per-drop **Boost** toggle (`boostEligible?: boolean`; opt-out, undefined = true).
+- `boostWeightMult` on `ModePricing` (default 2.0) replaces the old hardcoded `valueCents > priceCents` rule.
+- `getEffectiveDrops` in `chances.ts` is the single source of truth for drop weights (used by case opening, battle RNG, and the chance preview in CaseDetailsModal).
 - Export format: `{ schemaVersion: 1, paidCases: [...] }` or `{ schemaVersion: 1, freeCases: [...] }`.
 - Import validated per tab type before writing to store.
 

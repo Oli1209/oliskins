@@ -17,6 +17,8 @@ export const DropV1Schema = z.object({
   valueCents: z.number().int().nonnegative(),
   weight: z.number().positive(),
   image: z.string(),
+  /** undefined treated as true (opt-out model) */
+  boostEligible: z.boolean().optional(),
 });
 
 export const CaseV1Schema = z.object({
@@ -36,6 +38,7 @@ export const CaseV1Schema = z.object({
     .object({
       boostMult: z.number().positive(),
       jesterMult: z.number().positive(),
+      boostWeightMult: z.number().positive(),
     })
     .optional(),
   drops: z.array(DropV1Schema).min(1),

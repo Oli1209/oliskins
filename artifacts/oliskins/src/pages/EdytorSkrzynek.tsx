@@ -86,7 +86,7 @@ function normalizeWeights(drops: Drop[]): Drop[] {
 
 type CaseErrors = {
   name?: string; priceCents?: string; drops?: string;
-  boostMult?: string; jesterMult?: string;
+  boostMult?: string; jesterMult?: string; boostWeightMult?: string;
   requiredLevel?: string; tier?: string;
 };
 type DropErrors = { name?: string; weight?: string; valueCents?: string }[];
@@ -107,6 +107,7 @@ function validateCase(
     const mp = draft.modePricing ?? DEFAULT_MODE_PRICING;
     if (mp.boostMult <= 0) { caseErrors.boostMult = "Mnożnik > 0."; valid = false; }
     if (mp.jesterMult <= 0) { caseErrors.jesterMult = "Mnożnik > 0."; valid = false; }
+    if ((mp.boostWeightMult ?? 0) <= 0) { caseErrors.boostWeightMult = "Mnożnik > 0."; valid = false; }
   } else {
     const rl = draft.requiredLevel ?? 1;
     if (!Number.isInteger(rl) || rl < 1) { caseErrors.requiredLevel = "Wymagany poziom ≥ 1."; valid = false; }
@@ -222,6 +223,24 @@ function DropRow({
         />
       </td>
 
+      {/* Boost eligible toggle */}
+      <td className="px-2 py-1.5 text-center min-w-[52px]">
+        <button
+          type="button"
+          title={drop.boostEligible !== false
+            ? "Drop objęty Boost — kliknij, aby wyłączyć"
+            : "Drop wyłączony z Boost — kliknij, aby włączyć"}
+          onClick={() => onChange({ ...drop, boostEligible: drop.boostEligible !== false ? false : true })}
+          className={`w-7 h-7 rounded-md border text-[11px] font-black transition-all mx-auto flex items-center justify-center ${
+            drop.boostEligible !== false
+              ? "border-amber-500/60 bg-amber-500/20 text-amber-300 shadow-[0_0_6px_rgba(245,158,11,0.25)]"
+              : "border-slate-700/50 bg-slate-900/50 text-slate-600"
+          }`}
+        >
+          B
+        </button>
+      </td>
+
       {/* Szansa — read-only, always shows persisted weight % */}
       <td className="px-2 py-1.5 text-center min-w-[70px]">
         <span className={`text-xs font-mono ${editMode === "pct" ? "text-slate-600" : "text-slate-400"}`}>
@@ -259,7 +278,8 @@ function CaseEditor({ caseId, onDeselect, allCases, onUpdate, onDelete, caseType
   const hydratedDraft = (c: Case): Case => ({
     ...c,
     drops: c.drops.map((d) => ({ ...d })),
-    modePricing: c.modePricing ?? { ...DEFAULT_MODE_PRICING },
+    // Spread defaults first so old saved cases get boostWeightMult even if missing
+    modePricing: { ...DEFAULT_MODE_PRICING, ...(c.modePricing ?? {}) },
     modeAvailability: c.modeAvailability ?? { ...DEFAULT_MODE_AVAILABILITY },
     tier: c.tier ?? 1,
     requiredLevel: c.requiredLevel ?? 1,
@@ -478,36 +498,67 @@ function CaseEditor({ caseId, onDeselect, allCases, onUpdate, onDelete, caseType
       {/* Mode pricing — paid only */}
       {caseType === "paid" && (
         <div className="glass-strong rounded-2xl border border-slate-700/30 p-5 space-y-4">
-          <h3 className="text-sm font-black text-slate-200">Ceny trybów</h3>
+          <h3 className="text-sm font-black text-slate-200">Konfiguracja trybów</h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                Boost — mnożnik ceny
-              </label>
-              <input
-                type="number" min="0.01" step="0.1"
-                value={mp.boostMult}
-                onChange={(e) => setMp({ boostMult: parseMultiplier(e.target.value) })}
-                className={multFieldCls(caseErrors.boostMult)}
-              />
-              {caseErrors.boostMult && <p className="text-[10px] text-red-400 mt-1">{caseErrors.boostMult}</p>}
-            </div>
+          {/* ── Price multipliers ── */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">Mnożniki ceny</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                  Boost — mnożnik ceny
+                </label>
+                <input
+                  type="number" min="0.01" step="0.1"
+                  value={mp.boostMult}
+                  onChange={(e) => setMp({ boostMult: parseMultiplier(e.target.value) })}
+                  className={multFieldCls(caseErrors.boostMult)}
+                />
+                {caseErrors.boostMult && <p className="text-[10px] text-red-400 mt-1">{caseErrors.boostMult}</p>}
+              </div>
 
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                Jester — mnożnik ceny
-              </label>
-              <input
-                type="number" min="0.01" step="0.1"
-                value={mp.jesterMult}
-                onChange={(e) => setMp({ jesterMult: parseMultiplier(e.target.value) })}
-                className={multFieldCls(caseErrors.jesterMult)}
-              />
-              {caseErrors.jesterMult && <p className="text-[10px] text-red-400 mt-1">{caseErrors.jesterMult}</p>}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                  Jester — mnożnik ceny
+                </label>
+                <input
+                  type="number" min="0.01" step="0.1"
+                  value={mp.jesterMult}
+                  onChange={(e) => setMp({ jesterMult: parseMultiplier(e.target.value) })}
+                  className={multFieldCls(caseErrors.jesterMult)}
+                />
+                {caseErrors.jesterMult && <p className="text-[10px] text-red-400 mt-1">{caseErrors.jesterMult}</p>}
+              </div>
             </div>
           </div>
 
+          {/* ── Boost weight multiplier ── */}
+          <div className="border-t border-slate-800/40 pt-4 space-y-2">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-500/70 mb-1">
+              Boost — szanse dropów
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                  Mnożnik wagi Boost (B-dropy)
+                </label>
+                <input
+                  type="number" min="0.01" step="0.1"
+                  value={mp.boostWeightMult ?? 2}
+                  onChange={(e) => setMp({ boostWeightMult: parseMultiplier(e.target.value) })}
+                  className={multFieldCls(caseErrors.boostWeightMult)}
+                />
+                {caseErrors.boostWeightMult && <p className="text-[10px] text-red-400 mt-1">{caseErrors.boostWeightMult}</p>}
+              </div>
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-3 py-2.5 text-[10px] text-amber-400/70 leading-snug">
+                Dropia z <span className="font-bold text-amber-300">B</span> zaznaczonym w tabeli otrzymują wagę
+                {" "}<span className="font-bold font-mono text-amber-300">× {(mp.boostWeightMult ?? 2).toFixed(1)}</span>{" "}
+                w trybie Boost. Pozostałe dropia mają wagę bez zmian.
+              </div>
+            </div>
+          </div>
+
+          {/* ── Price preview ── */}
           <div className="grid grid-cols-3 gap-2">
             {[
               { label: "Cena Normal", cost: normalCost, color: "text-slate-300" },
@@ -649,17 +700,18 @@ function CaseEditor({ caseId, onDeselect, allCases, onUpdate, onDelete, caseType
         {caseErrors.drops && <p className="text-xs text-red-400">{caseErrors.drops}</p>}
 
         <div className="overflow-x-auto rounded-xl border border-slate-800/60">
-          <table className="w-full min-w-[700px] text-xs">
+          <table className="w-full min-w-[780px] text-xs">
             <thead>
               <tr className="border-b border-slate-800/60 bg-slate-950/40">
                 {[
                   "Nazwa", "Rzadkość", "Wartość ($)",
                   editMode === "pct" ? "Szansa %" : "Waga",
                   "Obraz URL",
+                  "Boost",
                   editMode === "pct" ? "Waga (akt.)" : "Szansa",
                   "",
                 ].map((h) => (
-                  <th key={h} className="px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-slate-600">{h}</th>
+                  <th key={h} className={`px-2 py-2 text-left text-[10px] font-bold uppercase tracking-wider ${h === "Boost" ? "text-amber-600/70 text-center" : "text-slate-600"}`}>{h}</th>
                 ))}
               </tr>
             </thead>

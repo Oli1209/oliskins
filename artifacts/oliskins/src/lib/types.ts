@@ -16,16 +16,24 @@ export type Drop = {
   image: string;
   valueCents: number;
   weight: number;
+  /**
+   * Whether this drop is eligible for the Boost weight multiplier.
+   * Defaults to true when undefined (opt-out model).
+   */
+  boostEligible?: boolean;
 };
 
 export type ModePricing = {
   boostMult: number;
   jesterMult: number;
+  /** Weight multiplier applied to boost-eligible drops in Boost mode. Default 2.0. */
+  boostWeightMult: number;
 };
 
 export const DEFAULT_MODE_PRICING: ModePricing = {
   boostMult: 2.0,
   jesterMult: 1.0,
+  boostWeightMult: 2.0,
 };
 
 export type ModeAvailability = {

@@ -40,21 +40,26 @@ export function getTotalCostCents(
  * for both the chance UI and the RNG opening logic.
  *
  * - normal: weight = drop.weight
- * - boost:  weight = drop.weight * 2 if drop.valueCents > case.priceCents
+ * - boost:  weight = drop.weight * boostWeightMult  if drop.boostEligible !== false
  *           else drop.weight
+ *           (boostWeightMult comes from case.modePricing, default 2.0)
  * - jester: weight = 1 for every drop (uniform distribution)
  */
 export function getEffectiveDrops(
   caseData: Case,
   mode: Mode = "normal"
 ): EffectiveDrop[] {
+  const mp = caseData.modePricing ?? DEFAULT_MODE_PRICING;
+  const boostWeightMult = mp.boostWeightMult ?? DEFAULT_MODE_PRICING.boostWeightMult;
+
   const withWeights = caseData.drops.map((d) => {
     let effectiveWeight: number;
     if (mode === "jester") {
       effectiveWeight = 1;
     } else if (mode === "boost") {
+      // boostEligible defaults to true when undefined (opt-out model)
       effectiveWeight =
-        d.valueCents > caseData.priceCents ? d.weight * 2 : d.weight;
+        d.boostEligible !== false ? d.weight * boostWeightMult : d.weight;
     } else {
       effectiveWeight = d.weight;
     }
